@@ -314,7 +314,17 @@ td:first-child { color: var(--ink); font-weight: 600; }
 .token-row > span { color: var(--muted); font-size: 8px; font-weight: 700; letter-spacing: .4px; }
 .token-row code { overflow: hidden; color: var(--ink); font: 9px monospace; text-overflow: ellipsis; white-space: nowrap; }
 .copy-button { flex: 0 0 auto; border: 0; color: var(--purple); background: transparent; font-size: 9px; font-weight: 700; cursor: pointer; }
+.qr-connection { display: flex; align-items: center; gap: 6px; padding: 8px 10px; margin-bottom: 10px; border: 1px solid color-mix(in srgb, var(--green), transparent 70%); border-radius: 7px; color: var(--green); background: var(--green-soft); font-size: 9px; font-weight: 700; }
 .qr-footer { display: flex; align-items: center; justify-content: space-between; gap: 15px; padding-top: 13px; border-top: 1px solid var(--line); color: var(--muted); font-size: 9px; }
+#qrModal .modal:fullscreen { display: flex; flex-direction: column; justify-content: center; width: 100vw; height: 100vh; max-width: none; max-height: none; padding: clamp(24px, 5vw, 72px); border-radius: 0; background: var(--page); }
+#qrModal .modal:fullscreen .qr-holder { width: min(36vw, 420px); height: min(36vw, 420px); }
+#qrModal .modal:fullscreen .qr-holder canvas, #qrModal .modal:fullscreen .qr-holder img { max-width: 100%; max-height: 100%; }
+#qrModal .modal:fullscreen .qr-instructions h3 { font-size: clamp(20px, 3vw, 38px); }
+#qrModal .modal:fullscreen .qr-instructions p, #qrModal .modal:fullscreen .qr-meta strong { font-size: 14px; }
+.camera-scanner { padding: 10px; margin: 10px 0; border: 1px solid var(--line); border-radius: 8px; background: #111; text-align: center; }
+.camera-scanner video { display: block; width: 100%; max-height: 230px; border-radius: 5px; object-fit: cover; }
+.camera-scanner p { margin: 7px 0; color: #fff; font-size: 10px; }
+.scan-camera-button { margin-bottom: 6px; }
 .qr-footer strong { color: var(--ink); }
 .live-indicator { width: 6px; height: 6px; margin-right: 5px; background: #34b883; }
 .live-caption { margin-left: 5px; color: var(--faint); }

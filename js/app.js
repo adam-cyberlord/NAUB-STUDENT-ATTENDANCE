@@ -480,6 +480,9 @@ function bindScanFlow() {
   document.getElementById('closeSessionBtn').addEventListener('click', closeActiveSession);
   document.getElementById('rotateQrBtn').addEventListener('click', rotateSessionQr);
   document.getElementById('finalizeSessionBtn').addEventListener('click', finalizeActiveSession);
+  document.getElementById('fullscreenQrBtn').addEventListener('click', toggleQrFullscreen);
+  document.getElementById('startCameraBtn').addEventListener('click', startCameraScanner);
+  document.getElementById('stopCameraBtn').addEventListener('click', stopCameraScanner);
   document.getElementById('testScanBtn').addEventListener('click', () => {
     const session = state.sessions.find(item => item.id === activeSessionId);
     if (session) {
@@ -514,7 +517,12 @@ function openQrModal(sessionId) {
   document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
   qrCountdownTimer = setInterval(() => {
     secondsLeft -= 1;
-    if (secondsLeft <= 0) { rotateSessionQr(true); return; }
+    if (secondsLeft <= 0) {
+      document.getElementById('qrStatusLabel').textContent = 'RENEWING QR CODE';
+      document.getElementById('qrConnectionStatus').innerHTML = '<span class="live-indicator"></span><span>Renewing secure token…</span>';
+      rotateSessionQr(true);
+      return;
+    }
     document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
   }, 1000);
   document.getElementById('closeSessionBtn').disabled = session.status === 'closed';
@@ -532,6 +540,57 @@ function openQrModal(sessionId) {
     document.getElementById('qrCode').textContent = 'QR library unavailable. Copy the check-in link instead.';
   }
   openModal('qrModal');
+}
+
+let scanStream = null;
+let scanFrameTimer = null;
+
+async function toggleQrFullscreen() {
+  const modal = document.querySelector('#qrModal .modal');
+  if (!document.fullscreenElement) {
+    try { await modal.requestFullscreen(); } catch (error) { showToast('Full-screen mode is not available in this browser.', 'error'); }
+  } else {
+    await document.exitFullscreen();
+  }
+}
+
+async function startCameraScanner() {
+  const video = document.getElementById('scanVideo');
+  if (!navigator.mediaDevices?.getUserMedia) return failScan('Camera access is not available. Use the manual check-in link or ask your lecturer for help.');
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    video.srcObject = scanStream;
+    await video.play();
+    document.getElementById('cameraScanner').classList.remove('hidden');
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const scanFrame = async () => {
+        if (!scanStream) return;
+        try {
+          const codes = await detector.detect(video);
+          const token = codes[0]?.rawValue?.match(/\/a\/([^/?#]+)/)?.[1] || codes[0]?.rawValue;
+          if (token) { stopCameraScanner(); openScanModal(state.sessions.find(item => item.token === token), token); return; }
+        } catch (error) { console.warn('Camera QR detection failed:', error); }
+        scanFrameTimer = requestAnimationFrame(scanFrame);
+      };
+      scanFrameTimer = requestAnimationFrame(scanFrame);
+    } else {
+      showToast('Camera opened. This browser does not support automatic QR detection; use the link fallback.', 'error');
+    }
+  } catch (error) {
+    console.warn('Camera permission failed:', error);
+    failScan('Camera permission was denied or unavailable. Use the manual check-in link instead.');
+  }
+}
+
+function stopCameraScanner() {
+  if (scanFrameTimer) cancelAnimationFrame(scanFrameTimer);
+  scanFrameTimer = null;
+  if (scanStream) scanStream.getTracks().forEach(track => track.stop());
+  scanStream = null;
+  const video = document.getElementById('scanVideo');
+  if (video) video.srcObject = null;
+  document.getElementById('cameraScanner')?.classList.add('hidden');
 }
 
 function scanUrl(token) {
