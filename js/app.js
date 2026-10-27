@@ -43,6 +43,7 @@ function init() {
   bindExports();
   bindTheme();
   bindUtilityControls();
+  bindRoleSwitcher();
   bindStudentAuth();
   populateCourseSelects();
   renderAll();
@@ -306,8 +307,26 @@ function setAuthFeedback(id, message, isError) {
   feedback.classList.toggle('error', isError);
 }
 
+function bindRoleSwitcher() {
+  const roleSelect = document.getElementById('roleSelect');
+  roleSelect.addEventListener('change', () => {
+    const role = roleSelect.value;
+    document.body.dataset.role = role;
+    const labels = { lecturer: 'Lecturer workspace', admin: 'Admin workspace', student: 'Student workspace' };
+    document.querySelector('.workspace-label').textContent = labels[role];
+    document.querySelector('.breadcrumb > span').textContent = labels[role];
+    document.querySelector('.profile-copy small').textContent = role === 'admin' ? 'Administrator · NAUB' : role === 'student' ? 'Student · NAUB' : 'Lecturer · NAUB';
+    document.querySelector('.profile-copy strong').textContent = role === 'admin' ? 'Ibrahim Sule' : role === 'student' ? 'Chiamaka Okafor' : 'Dr. Amina Yusuf';
+    document.querySelector('.top-avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
+    document.querySelector('.avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('hidden', role === 'admin' || role === 'student'));
+    navigateTo(role === 'admin' ? 'admin' : role === 'student' ? 'student' : 'dashboard');
+  });
+  document.querySelectorAll('[data-demo-action]').forEach(button => button.addEventListener('click', () => showToast('This action is part of the demonstration view.')));
+}
+
 function navigateTo(page) {
-  const title = { dashboard: 'Overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports' }[page];
+  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports' }[page];
   if (!title) return;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
   document.querySelectorAll('.page').forEach(section => section.classList.toggle('active', section.id === `page-${page}`));
