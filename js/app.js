@@ -58,6 +58,7 @@ function init() {
   bindUtilityControls();
   bindRoleSwitcher();
   bindStudentAuth();
+  bindDeviceManagement();
   populateCourseSelects();
   renderAll();
   renderWorkflowPages();
@@ -100,11 +101,13 @@ function matricEmail(matric) {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { sessions: [], attendance: [] };
+    if (!saved) return { sessions: [], attendance: [], devices: [], deviceRequests: [] };
     const parsed = JSON.parse(saved);
     if (!parsed || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.attendance)) {
       throw new Error('Stored demo data has an unexpected shape.');
     }
+    parsed.devices ||= [];
+    parsed.deviceRequests ||= [];
     return parsed;
   } catch (error) {
     console.error('Unable to load NAUB attendance demo data:', error);
@@ -122,6 +125,8 @@ function persist() {
 }
 
 function seedState() {
+  state.devices ||= [{ id: deviceIdFor('u1'), label: 'Current browser', type: 'Browser', browser: navigator.userAgent.slice(0, 80), registeredAt: new Date().toISOString(), lastSeen: new Date().toISOString(), status: 'Active' }];
+  state.deviceRequests ||= [];
   if (state.sessions.length) return;
   const now = new Date();
   const activeStart = new Date(now.getTime() - 15 * 60_000);
@@ -324,6 +329,36 @@ function setAuthFeedback(id, message, isError) {
   feedback.classList.toggle('error', isError);
 }
 
+function bindDeviceManagement() {
+  const deviceForm = document.getElementById('deviceChangeForm');
+  document.getElementById('requestDeviceChangeBtn')?.addEventListener('click', () => openModal('deviceChangeModal'));
+  deviceForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    const request = { id: `DCR-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, studentId: 'u1', label: document.getElementById('deviceLabel').value.trim(), type: document.getElementById('deviceType').value, reason: document.getElementById('deviceReason').value, notes: document.getElementById('deviceNotes').value.trim(), status: 'Pending', verification: 'Required', requestedAt: new Date().toISOString() };
+    state.deviceRequests = [request, ...(state.deviceRequests || [])];
+    persist(); renderDevicePages(); closeModal('deviceChangeModal'); deviceForm.reset(); showToast(`Request ${request.id} submitted for review.`);
+  });
+  renderDevicePages();
+}
+
+function renderDevicePages() {
+  const devices = document.getElementById('deviceList');
+  const currentId = deviceIdFor('u1');
+  if (devices) devices.innerHTML = (state.devices || []).map(device => `<article class="device-card"><div class="device-card-icon">▣</div><div class="device-card-copy"><strong>${escapeHtml(device.label)}</strong><span>${escapeHtml(device.type)} · ${escapeHtml(device.browser)}</span><small>Registered ${escapeHtml(formatDate(device.registeredAt.slice(0, 10)))} · Last seen ${escapeHtml(formatDate(device.lastSeen.slice(0, 10)))}</small></div><span class="table-status ${device.status !== 'Active' ? 'at-risk' : ''}">${escapeHtml(device.status)}${device.id === currentId ? ' · Current' : ''}</span></article>`).join('') || '<div class="empty-state">No registered devices yet.</div>';
+  const approvals = document.getElementById('deviceApprovalTableBody');
+  if (approvals) approvals.innerHTML = (state.deviceRequests || []).map(request => `<tr><td><strong>Chiamaka Okafor</strong><small class="table-subtext">190401001</small></td><td>${escapeHtml(request.label)}<small class="table-subtext">${escapeHtml(request.type)}</small></td><td>${escapeHtml(request.reason)}</td><td><span class="table-status at-risk">${escapeHtml(request.verification)}</span></td><td><span class="table-status at-risk">${escapeHtml(request.status)}</span></td><td>${request.status === 'Pending' ? `<button class="button button-small button-primary" data-approve-device="${escapeHtml(request.id)}">Approve</button><button class="button button-small button-outline" data-reject-device="${escapeHtml(request.id)}">Reject</button>` : escapeHtml(request.id)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-state">No device requests require review.</td></tr>';
+  document.querySelectorAll('[data-approve-device]').forEach(button => button.onclick = () => updateDeviceRequest(button.dataset.approveDevice, 'Approved'));
+  document.querySelectorAll('[data-reject-device]').forEach(button => button.onclick = () => updateDeviceRequest(button.dataset.rejectDevice, 'Rejected'));
+}
+
+function updateDeviceRequest(id, status) {
+  const request = (state.deviceRequests || []).find(item => item.id === id);
+  if (!request) return;
+  request.status = status; request.reviewedAt = new Date().toISOString(); request.reviewer = 'authorized-staff';
+  if (status === 'Approved') state.devices.unshift({ id: randomId(), label: request.label, type: request.type, browser: navigator.userAgent.slice(0, 80), registeredAt: new Date().toISOString(), lastSeen: new Date().toISOString(), status: 'Active' });
+  persist(); renderDevicePages(); showToast(`Device request ${status.toLowerCase()}.`, status === 'Rejected' ? 'error' : 'success');
+}
+
 function bindRoleSwitcher() {
   const roleSelect = document.getElementById('roleSelect');
   roleSelect.addEventListener('change', () => {
@@ -343,7 +378,7 @@ function bindRoleSwitcher() {
 }
 
 function navigateTo(page) {
-  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports', lecturers: 'Lecturer management', courses: 'Course management', approvals: 'Approval center', 'student-approvals': 'Student approvals', 'registration-status': 'Registration status' }[page];
+  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports', lecturers: 'Lecturer management', courses: 'Course management', approvals: 'Approval center', 'student-approvals': 'Student approvals', 'registration-status': 'Registration status', devices: 'My devices', 'device-approvals': 'Device approvals' }[page];
   if (!title) return;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
   document.querySelectorAll('.page').forEach(section => section.classList.toggle('active', section.id === `page-${page}`));

@@ -817,6 +817,37 @@ grant execute on function public.update_class_session(uuid, timestamptz, timesta
 grant execute on function public.close_class_session(uuid) to authenticated;
 grant execute on function public.mark_attendance(text, uuid, double precision, double precision, double precision) to authenticated;
 
+-- Device approval and recovery workflow. Credentials remain server-side; only metadata is exposed.
+alter table public.devices add column if not exists label text not null default 'Registered device';
+alter table public.devices add column if not exists device_type text not null default 'browser';
+alter table public.devices add column if not exists browser_info text;
+alter table public.devices add column if not exists last_seen_at timestamptz not null default now();
+alter table public.devices add column if not exists revoked_at timestamptz;
+
+create table if not exists public.device_change_requests (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  student_id uuid not null references public.users(id) on delete cascade,
+  previous_device_id uuid references public.devices(id) on delete set null,
+  requested_label text not null check (length(requested_label) between 2 and 80),
+  requested_type text not null,
+  reason text not null,
+  notes text,
+  status text not null default 'pending' check (status in ('pending','under_review','approved','rejected','cancelled')),
+  verification_status text not null default 'required' check (verification_status in ('required','pending','verified','failed')),
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  decision_reason text,
+  created_at timestamptz not null default now(),
+  foreign key (student_id, university_id) references public.users(id, university_id) on delete cascade
+);
+create index if not exists device_change_requests_scope on public.device_change_requests (university_id, status, created_at desc);
+alter table public.device_change_requests enable row level security;
+create policy if not exists "students view own device requests" on public.device_change_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+create policy if not exists "students create own device requests" on public.device_change_requests for insert to authenticated with check (student_id = auth.uid());
+create policy if not exists "authorized staff review device requests" on public.device_change_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid())) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+grant select, insert, update on public.device_change_requests to authenticated;
+
 -- Stage 2 approval workflow tables. Apply as a versioned migration in Supabase before enabling production writes.
 create table if not exists public.invitations (
   id uuid primary key default gen_random_uuid(),
