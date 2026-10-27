@@ -29,6 +29,8 @@ let activeSessionId = null;
 let editingSessionId = null;
 let sessionFilter = 'all';
 let toastTimer;
+let supabaseClientPromise;
+let isAuthenticated = false;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -47,6 +49,37 @@ function init() {
   setTodayLabel();
   setSessionDefaults();
   openRouteSession();
+  ensureStudentAuthentication();
+}
+
+async function getSupabase() {
+  if (!supabaseClientPromise) {
+    supabaseClientPromise = fetch('/api/auth-config')
+      .then(response => {
+        if (!response.ok) throw new Error('Authentication configuration is unavailable.');
+        return response.json();
+      })
+      .then(config => import('https://esm.sh/@supabase/supabase-js@2').then(({ createClient }) => {
+        if (!config.url || !config.publishableKey) throw new Error('Supabase authentication is not configured.');
+        return createClient(config.url, config.publishableKey);
+      }));
+  }
+  return supabaseClientPromise;
+}
+
+async function ensureStudentAuthentication() {
+  try {
+    const supabase = await getSupabase();
+    const { data } = await supabase.auth.getSession();
+    isAuthenticated = Boolean(data.session);
+  } catch (error) {
+    console.error('Unable to initialize student authentication:', error);
+  }
+  if (!isAuthenticated) openStudentPortal();
+}
+
+function matricEmail(matric) {
+  return `${matric.trim().toLowerCase().replace(/[^a-z0-9]/g, '')}@students.naub.edu.ng`;
 }
 
 function loadState() {
@@ -168,10 +201,26 @@ function bindStudentAuth() {
   document.getElementById('forgotPasswordBtn').addEventListener('click', () => {
     setAuthFeedback('loginFeedback', 'Password reset is not available in this preview. In production, use the university account recovery service.', true);
   });
-  document.getElementById('studentLoginPanel').addEventListener('submit', event => {
+  document.getElementById('studentLoginPanel').addEventListener('submit', async event => {
     event.preventDefault();
-    setAuthFeedback('loginFeedback', 'The form is valid, but student sign-in is not connected in this preview. No password was sent or saved.', false);
-    document.getElementById('loginPassword').value = '';
+    const form = event.currentTarget;
+    if (!form.reportValidity()) return;
+    const matric = document.getElementById('loginMatric').value.trim();
+    const password = document.getElementById('loginPassword').value;
+    setAuthFeedback('loginFeedback', 'Signing you in…', false);
+    try {
+      const supabase = await getSupabase();
+      const { error } = await supabase.auth.signInWithPassword({ email: matricEmail(matric), password });
+      if (error) throw error;
+      isAuthenticated = true;
+      closeModal('studentAuthModal');
+      setAuthFeedback('loginFeedback', '', false);
+    } catch (error) {
+      console.error('Student sign-in failed:', error);
+      setAuthFeedback('loginFeedback', 'Invalid matric number or password.', true);
+    } finally {
+      document.getElementById('loginPassword').value = '';
+    }
   });
   const registerForm = document.getElementById('studentRegisterPanel');
   const confirmPassword = document.getElementById('registerPasswordConfirm');
@@ -187,14 +236,46 @@ function bindStudentAuth() {
   };
   document.getElementById('registerPassword').addEventListener('input', checkPasswordMatch);
   confirmPassword.addEventListener('input', checkPasswordMatch);
-  registerForm.addEventListener('submit', event => {
+  registerForm.addEventListener('submit', async event => {
     event.preventDefault();
     checkPhone();
     checkPasswordMatch();
     if (!registerForm.reportValidity()) return;
-    setAuthFeedback('registerFeedback', 'Your details passed the form checks. Account creation is not connected in this preview, and none of these details were saved.', false);
-    document.getElementById('registerPassword').value = '';
-    confirmPassword.value = '';
+    const matric = document.getElementById('registerMatric').value.trim();
+    const password = document.getElementById('registerPassword').value;
+    setAuthFeedback('registerFeedback', 'Creating your account…', false);
+    try {
+      const supabase = await getSupabase();
+      const { data, error } = await supabase.auth.signUp({
+        email: matricEmail(matric),
+        password,
+        options: {
+          data: {
+            full_name: document.getElementById('registerName').value.trim(),
+            matric_number: matric,
+            phone: document.getElementById('registerPhone').value.trim(),
+            faculty: document.getElementById('registerFaculty').value.trim(),
+            department: document.getElementById('registerDepartment').value.trim(),
+            level: document.getElementById('registerLevel').value,
+          },
+          emailRedirectTo: window.location.href.split('#')[0],
+        },
+      });
+      if (error) throw error;
+      if (data.session) {
+        isAuthenticated = true;
+        closeModal('studentAuthModal');
+      } else {
+        setAuthFeedback('registerFeedback', 'Account created. Check your university email to confirm, then sign in.', false);
+      }
+      registerForm.reset();
+    } catch (error) {
+      console.error('Student registration failed:', error);
+      setAuthFeedback('registerFeedback', 'We could not create that account. Check the details and try again.', true);
+    } finally {
+      document.getElementById('registerPassword').value = '';
+      confirmPassword.value = '';
+    }
   });
 }
 
@@ -807,6 +888,7 @@ function openModal(id) {
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
+  if (id === 'studentAuthModal' && !isAuthenticated) return;
   if (id === 'studentAuthModal') clearStudentAuthForms();
   modal.classList.add('hidden');
   if (!document.querySelector('.modal-backdrop:not(.hidden)')) document.body.style.overflow = '';
