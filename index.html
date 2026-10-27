@@ -25,6 +25,11 @@
       <button class="nav-item" data-page="sessions"><span class="nav-icon">▦</span>Class sessions</button>
       <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>My students</button>
       <button class="nav-item" data-page="reports"><span class="nav-icon">▤</span>Reports</button>
+      <button class="nav-item admin-only hidden" data-page="lecturers"><span class="nav-icon">♙</span>Lecturer management</button>
+      <button class="nav-item admin-only hidden" data-page="courses"><span class="nav-icon">▦</span>Course management</button>
+      <button class="nav-item admin-only hidden" data-page="approvals"><span class="nav-icon">✓</span>Approval center</button>
+      <button class="nav-item student-only hidden" data-page="registration-status"><span class="nav-icon">◌</span>Registration status</button>
+      <button class="nav-item lecturer-only hidden" data-page="student-approvals"><span class="nav-icon">✓</span>Student approvals</button>
     </nav>
     <div class="sidebar-bottom">
       <div class="help-card">
@@ -117,6 +122,29 @@
         <div class="welcome-row page-intro"><div><p class="eyebrow">SEMESTER SUMMARY</p><h1 id="reportsTitle">Attendance reports</h1><p class="subheading">Track course participation and exam eligibility.</p></div><button class="button button-outline" id="exportReport"><span>↓</span> Export CSV</button></div>
         <div class="report-callout"><span class="callout-icon">◎</span><div><strong>Exam eligibility threshold: 75%</strong><p>Students below the attendance threshold may not meet your course's attendance requirement.</p></div><span class="threshold-chip">Loading…</span></div>
         <div class="panel"><div class="panel-heading report-heading"><div><h2>Students below attendance threshold</h2><p>Based on recorded attendance for this semester</p></div><select id="reportCourse" aria-label="Filter report by course"><option value="">All courses</option></select></div><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>ATTENDANCE</th><th>SESSIONS ATTENDED</th></tr></thead><tbody id="reportTableBody"></tbody></table></div><div class="empty-message hidden" id="noAtRisk">No students are below the threshold for this course.</div></div>
+      </section>
+
+      <section class="page" id="page-lecturers" aria-labelledby="lecturersTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION</p><h1 id="lecturersTitle">Lecturer management</h1><p class="subheading">Invite, review and manage lecturer accounts.</p></div><button class="button button-primary" id="inviteLecturerBtn">＋ Create invitation</button></div>
+        <div class="panel"><div class="roster-toolbar"><label class="search-input"><span>⌕</span><input id="lecturerSearch" type="search" placeholder="Search name, staff ID or email"></label><select id="lecturerStatusFilter" aria-label="Filter lecturers"><option value="all">All statuses</option><option value="pending">Pending approval</option><option value="active">Active</option><option value="suspended">Suspended</option></select></div><div class="table-scroll"><table><thead><tr><th>LECTURER</th><th>STAFF ID</th><th>DEPARTMENT</th><th>COURSES</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="lecturerTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-courses" aria-labelledby="coursesTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ACADEMIC SETUP</p><h1 id="coursesTitle">Course management</h1><p class="subheading">Manage courses, sessions and lecturer assignments.</p></div><button class="button button-primary" id="createCourseBtn">＋ Add course</button></div>
+        <div class="panel"><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DEPARTMENT</th><th>LEVEL</th><th>SEMESTER</th><th>LECTURER</th><th>ENROLLED</th></tr></thead><tbody id="adminCourseTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-approvals" aria-labelledby="approvalsTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION</p><h1 id="approvalsTitle">Approval center</h1><p class="subheading">Review lecturer applications and student registration requests.</p></div></div>
+        <div class="dashboard-bottom"><section class="panel"><div class="panel-heading panel-padding"><div><h2>Pending lecturer applications</h2><p>Only approved and active lecturers can access teaching tools.</p></div></div><div id="pendingLecturerApprovals" class="approval-list"></div></section><section class="panel"><div class="panel-heading panel-padding"><div><h2>Pending student enrolments</h2><p>Course approvals are independent for every requested course.</p></div></div><div id="pendingStudentApprovals" class="approval-list"></div></section></div>
+      </section>
+
+      <section class="page" id="page-student-approvals" aria-labelledby="studentApprovalsTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">LECTURER WORKSPACE</p><h1 id="studentApprovalsTitle">Student approvals</h1><p class="subheading">Review pending enrolments for courses assigned to you.</p></div></div><div class="panel"><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>VERIFICATION</th><th>ACTION</th></tr></thead><tbody id="studentApprovalTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-registration-status" aria-labelledby="registrationStatusTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT PORTAL</p><h1 id="registrationStatusTitle">Registration status</h1><p class="subheading">Track identity verification and each course approval separately.</p></div></div><div class="panel registration-status-panel" id="registrationStatusContent"></div>
       </section>
     </div>
   </main>

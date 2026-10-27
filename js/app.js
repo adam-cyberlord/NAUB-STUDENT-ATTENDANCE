@@ -9,6 +9,17 @@ const COURSES = [
   { id: 'csc311', code: 'CSC 311', name: 'Operating Systems', students: 28, rate: 91, tint: 'amber', room: 'Lecture Hall B' },
   { id: 'gst201', code: 'GST 201', name: 'Entrepreneurship Studies', students: 16, rate: 68, tint: 'purple', room: 'Main Classroom' },
 ];
+const LECTURERS = [
+  { id: 'l1', name: 'Dr. Amina Yusuf', staffId: 'NAUB-CS-014', email: 'amina.yusuf@naub.edu.ng', department: 'Computer Science', courseIds: ['csc301', 'csc305'], status: 'active', approval: 'approved' },
+  { id: 'l2', name: 'Dr. Musa Bello', staffId: 'NAUB-CS-027', email: 'musa.bello@naub.edu.ng', department: 'Computer Science', courseIds: ['csc311'], status: 'pending', approval: 'pending' },
+  { id: 'l3', name: 'Engr. N. Ibrahim', staffId: 'NAUB-EEE-008', email: 'n.ibrahim@naub.edu.ng', department: 'Electrical Engineering', courseIds: [], status: 'suspended', approval: 'approved' },
+];
+const ENROLMENT_REQUESTS = [
+  { id: 'en1', studentId: 'u3', courseId: 'csc301', status: 'pending', reason: '' },
+  { id: 'en2', studentId: 'u5', courseId: 'csc305', status: 'pending', reason: '' },
+  { id: 'en3', studentId: 'u7', courseId: 'gst201', status: 'rejected', reason: 'Please confirm your department details.' },
+];
+
 const STUDENTS = [
   { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11 },
   { id: 'u2', name: 'Ibrahim Musa', matric: '190401018', courseIds: ['csc301', 'csc311'], rate: 84, attended: 10 },
@@ -47,6 +58,7 @@ function init() {
   bindStudentAuth();
   populateCourseSelects();
   renderAll();
+  renderWorkflowPages();
   setTodayLabel();
   setSessionDefaults();
   openRouteSession();
@@ -319,14 +331,14 @@ function bindRoleSwitcher() {
     document.querySelector('.profile-copy strong').textContent = role === 'admin' ? 'Ibrahim Sule' : role === 'student' ? 'Chiamaka Okafor' : 'Dr. Amina Yusuf';
     document.querySelector('.top-avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
     document.querySelector('.avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
-    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('hidden', role === 'admin' || role === 'student'));
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('hidden', (item.classList.contains('admin-only') && role !== 'admin') || (item.classList.contains('student-only') && role !== 'student') || (item.classList.contains('lecturer-only') && role !== 'lecturer')));
     navigateTo(role === 'admin' ? 'admin' : role === 'student' ? 'student' : 'dashboard');
   });
   document.querySelectorAll('[data-demo-action]').forEach(button => button.addEventListener('click', () => showToast('This action is part of the demonstration view.')));
 }
 
 function navigateTo(page) {
-  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports' }[page];
+  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports', lecturers: 'Lecturer management', courses: 'Course management', approvals: 'Approval center', 'student-approvals': 'Student approvals', 'registration-status': 'Registration status' }[page];
   if (!title) return;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
   document.querySelectorAll('.page').forEach(section => section.classList.toggle('active', section.id === `page-${page}`));
@@ -767,6 +779,26 @@ function bindUtilityControls() {
   document.getElementById('dismissBanner').addEventListener('click', () => {
     document.querySelector('.demo-banner').classList.add('hidden');
   });
+}
+
+function renderWorkflowPages() {
+  const lecturerBody = document.getElementById('lecturerTableBody');
+  if (lecturerBody) lecturerBody.innerHTML = LECTURERS.map(lecturer => `<tr><td><strong>${escapeHtml(lecturer.name)}</strong><small class="table-subtext">${escapeHtml(lecturer.email)}</small></td><td>${escapeHtml(lecturer.staffId)}</td><td>${escapeHtml(lecturer.department)}</td><td>${lecturer.courseIds.length}</td><td><span class="table-status ${lecturer.status === 'active' ? '' : 'at-risk'}">${escapeHtml(lecturer.status)}</span></td><td><button class="button button-small button-soft" data-lecturer-action="${lecturer.id}">${lecturer.status === 'pending' ? 'Approve' : 'View'}</button></td></tr>`).join('');
+  const courseBody = document.getElementById('adminCourseTableBody');
+  if (courseBody) courseBody.innerHTML = COURSES.map(course => `<tr><td><strong>${escapeHtml(course.code)}</strong><small class="table-subtext">${escapeHtml(course.name)}</small></td><td>Computer Science</td><td>300</td><td>First Semester</td><td>${course.id === 'csc301' ? 'Dr. Amina Yusuf' : 'Unassigned'}</td><td>${course.students}</td></tr>`).join('');
+  const pendingLecturers = document.getElementById('pendingLecturerApprovals');
+  if (pendingLecturers) pendingLecturers.innerHTML = LECTURERS.filter(item => item.approval === 'pending').map(item => `<div class="approval-item"><div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.staffId)} · ${escapeHtml(item.department)}</span></div><button class="button button-small button-primary" data-approve-lecturer="${item.id}">Approve</button></div>`).join('') || '<div class="empty-state">No pending lecturer applications.</div>';
+  const pendingStudents = document.getElementById('pendingStudentApprovals');
+  if (pendingStudents) pendingStudents.innerHTML = ENROLMENT_REQUESTS.filter(item => item.status === 'pending').map(item => { const student = STUDENTS.find(s => s.id === item.studentId); const course = COURSES.find(c => c.id === item.courseId); return `<div class="approval-item"><div><strong>${escapeHtml(student.name)}</strong><span>${escapeHtml(course.code)} · ${escapeHtml(student.matric)}</span></div><span class="table-status at-risk">Pending</span></div>`; }).join('') || '<div class="empty-state">No pending student enrolments.</div>';
+  const studentApprovals = document.getElementById('studentApprovalTableBody');
+  if (studentApprovals) studentApprovals.innerHTML = ENROLMENT_REQUESTS.filter(item => item.status === 'pending').map(item => { const student = STUDENTS.find(s => s.id === item.studentId); const course = COURSES.find(c => c.id === item.courseId); return `<tr><td>${escapeHtml(student.name)}</td><td>${escapeHtml(student.matric)}</td><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td><span class="table-status">Awaiting verification</span></td><td><button class="button button-small button-primary" data-approve-enrolment="${item.id}">Approve</button><button class="button button-small button-outline" data-reject-enrolment="${item.id}">Reject</button></td></tr>`; }).join('');
+  const status = document.getElementById('registrationStatusContent');
+  if (status) status.innerHTML = `<div class="registration-summary"><span class="status-pill upcoming"><i></i> Awaiting approval</span><h2>Registration submitted</h2><p>Your account is awaiting identity verification. Course decisions are tracked independently.</p></div>${ENROLMENT_REQUESTS.map(item => { const course = COURSES.find(c => c.id === item.courseId); return `<div class="status-row"><div><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><small>${item.status === 'rejected' ? escapeHtml(item.reason) : 'Lecturer approval is pending.'}</small></div><span class="table-status ${item.status === 'approved' ? '' : 'at-risk'}">${escapeHtml(item.status)}</span></div>`; }).join('')}`;
+  document.querySelectorAll('[data-approve-lecturer]').forEach(button => button.onclick = () => { const lecturer = LECTURERS.find(item => item.id === button.dataset.approveLecturer); lecturer.status = 'active'; lecturer.approval = 'approved'; renderWorkflowPages(); showToast('Lecturer approved and activated.'); });
+  document.querySelectorAll('[data-approve-enrolment]').forEach(button => button.onclick = () => { const request = ENROLMENT_REQUESTS.find(item => item.id === button.dataset.approveEnrolment); request.status = 'approved'; renderWorkflowPages(); showToast('Course enrolment approved.'); });
+  document.querySelectorAll('[data-reject-enrolment]').forEach(button => button.onclick = () => { const request = ENROLMENT_REQUESTS.find(item => item.id === button.dataset.rejectEnrolment); request.status = 'rejected'; request.reason = 'Rejected by lecturer; correction required.'; renderWorkflowPages(); showToast('Enrolment rejected with a correction reason.', 'error'); });
+  document.getElementById('inviteLecturerBtn')?.addEventListener('click', () => showToast('Invitation created with a secure, expiring token. Connect the invitation endpoint to persist it.', 'success'));
+  document.getElementById('createCourseBtn')?.addEventListener('click', () => showToast('Course creation form is ready for the course-management API.'));
 }
 
 function renderAll() {

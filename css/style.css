@@ -232,6 +232,18 @@ h1 span { color: var(--gold); font-size: 18px; vertical-align: 3px; }
 .session-info small, .session-detail small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
 .session-actions { display: flex; gap: 6px; }
 .empty-state { padding: 32px; color: var(--muted); text-align: center; }
+.admin-only, .student-only, .lecturer-only { transition: opacity .2s; }
+.table-subtext { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+.approval-list { display: grid; gap: 10px; padding: 16px; }
+.approval-item, .status-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 13px 15px; border-bottom: 1px solid var(--line); }
+.approval-item:last-child, .status-row:last-child { border-bottom: 0; }
+.approval-item strong, .status-row strong { display: block; font-size: 10px; }
+.approval-item span, .status-row small { display: block; margin-top: 4px; color: var(--muted); font-size: 9px; }
+.registration-status-panel { padding: 0; }
+.registration-summary { padding: 22px; border-bottom: 1px solid var(--line); }
+.registration-summary h2 { margin: 14px 0 5px; font-size: 15px; }
+.registration-summary p { margin: 0; color: var(--muted); font-size: 10px; }
+[data-role="admin"] .lecturer-only, [data-role="admin"] .student-only, [data-role="student"] .admin-only, [data-role="student"] .lecturer-only, [data-role="lecturer"] .admin-only, [data-role="lecturer"] .student-only { display: none !important; }
 .empty-state strong { display: block; margin-bottom: 6px; color: var(--ink); }
 .roster-panel { margin-top: 20px; }
 .roster-toolbar { display: flex; align-items: center; gap: 10px; padding: 14px 16px; border-bottom: 1px solid var(--line); }

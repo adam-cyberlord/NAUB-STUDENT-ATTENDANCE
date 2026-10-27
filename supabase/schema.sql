@@ -817,6 +817,55 @@ grant execute on function public.update_class_session(uuid, timestamptz, timesta
 grant execute on function public.close_class_session(uuid) to authenticated;
 grant execute on function public.mark_attendance(text, uuid, double precision, double precision, double precision) to authenticated;
 
+-- Stage 2 approval workflow tables. Apply as a versioned migration in Supabase before enabling production writes.
+create table if not exists public.invitations (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  email text not null,
+  role text not null check (role in ('lecturer', 'student')),
+  token_hash bytea not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  invited_by uuid not null references public.users(id) on delete restrict,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.registration_applications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  university_id uuid not null references public.universities(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'needs_correction')),
+  reference_number text not null unique,
+  rejection_reason text,
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.course_enrolment_requests (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  course_id uuid not null references public.courses(id) on delete cascade,
+  student_id uuid not null references public.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  rejection_reason text,
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (course_id, student_id)
+);
+
+alter table public.invitations enable row level security;
+alter table public.registration_applications enable row level security;
+alter table public.course_enrolment_requests enable row level security;
+create index if not exists invitation_expiry_idx on public.invitations (expires_at) where used_at is null;
+create index if not exists enrolment_request_student_idx on public.course_enrolment_requests (student_id, status);
+
+create policy "admins manage invitations" on public.invitations for all to authenticated using (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin')) with check (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "students read own applications" on public.registration_applications for select to authenticated using (user_id = auth.uid() or public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "admins review applications" on public.registration_applications for update to authenticated using (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin')) with check (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "participants read enrolment requests" on public.course_enrolment_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid()));
+create policy "authorized reviewers update enrolments" on public.course_enrolment_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid() and public.has_role(university_id, 'lecturer'))) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid() and public.has_role(university_id, 'lecturer')));
+
 -- No client-side INSERT/UPDATE/DELETE policy exists for attendance or sessions.
 -- Use these authenticated RPCs so authorization, token creation, audit, and
 -- one-check-in-per-session enforcement execute atomically on the server.
