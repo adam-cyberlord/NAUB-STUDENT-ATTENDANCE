@@ -25,6 +25,13 @@
       <button class="nav-item" data-page="sessions"><span class="nav-icon">▦</span>Class sessions</button>
       <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>My students</button>
       <button class="nav-item" data-page="reports"><span class="nav-icon">▤</span>Reports</button>
+      <button class="nav-item admin-only hidden" data-page="lecturers"><span class="nav-icon">♙</span>Lecturer management</button>
+      <button class="nav-item admin-only hidden" data-page="courses"><span class="nav-icon">▦</span>Course management</button>
+      <button class="nav-item admin-only hidden" data-page="approvals"><span class="nav-icon">✓</span>Approval center</button>
+      <button class="nav-item student-only hidden" data-page="registration-status"><span class="nav-icon">◌</span>Registration status</button>
+      <button class="nav-item student-only hidden" data-page="devices"><span class="nav-icon">▣</span>My devices</button>
+      <button class="nav-item lecturer-only hidden" data-page="student-approvals"><span class="nav-icon">✓</span>Student approvals</button>
+      <button class="nav-item lecturer-only admin-only hidden" data-page="device-approvals"><span class="nav-icon">⌁</span>Device approvals</button>
     </nav>
     <div class="sidebar-bottom">
       <div class="help-card">
@@ -47,7 +54,8 @@
       <div class="breadcrumb"><span>Lecturer workspace</span><span class="crumb-divider">/</span><strong id="pageCrumb">Overview</strong></div>
       <div class="topbar-actions">
         <span class="partner-emblem-frame"><img class="partner-logo" src="IMAGES/leftside logo.png" alt="Nigerian Army insignia"></span>
-        <button class="button button-student" id="studentPortalBtn"><span class="student-portal-icon">♙</span><span>Student portal</span></button>
+        <label class="role-select"><span class="sr-only">Switch demo role</span><select id="roleSelect"><option value="lecturer">Lecturer portal</option><option value="admin">Admin portal</option><option value="student">Student portal</option></select></label>
+        <button class="button button-student" id="studentPortalBtn"><span class="student-portal-icon">♙</span><span>Student access</span></button>
         <label class="term-select"><span class="sr-only">Academic session</span><select id="termSelect"><option>2025/2026 · First Semester</option><option>2025/2026 · Second Semester</option></select></label>
         <button class="icon-button" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button>
         <button class="top-avatar" aria-label="Account menu">AY</button>
@@ -87,6 +95,20 @@
         <footer class="footer-note"><span>© 2026 NAUB Student Attendance</span><span>Built for better learning, across Nigeria <b>♥</b></span><a href="#privacy">Privacy &amp; data</a></footer>
       </section>
 
+      <section class="page" id="page-admin" aria-labelledby="adminTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION OVERVIEW</p><h1 id="adminTitle">Good morning, Ibrahim</h1><p class="subheading">Monitor the attendance programme across NAUB faculties.</p></div><button class="button button-outline" data-demo-action="approval">Review approvals <span>→</span></button></div>
+        <div class="role-context"><span class="demo-dot"></span><strong>Admin demonstration view</strong><span>Sample operational data for the 2025/2026 first semester.</span></div>
+        <div class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Registered students</span><span class="stat-icon icon-lilac">♧</span></div><div class="stat-value">2,486</div><div class="stat-foot"><span class="trend-up">↑ 12.4%</span> this semester</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Active lecturers</span><span class="stat-icon icon-blue">◉</span></div><div class="stat-value">84</div><div class="stat-foot">Across <strong>12 departments</strong></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Courses</span><span class="stat-icon icon-green">▦</span></div><div class="stat-value">137</div><div class="stat-foot">Published for this session</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Pending approvals</span><span class="stat-icon icon-orange">!</span></div><div class="stat-value">18</div><div class="stat-foot"><span class="risk-copy">Needs review</span> from departments</div></article></div>
+        <div class="dashboard-bottom"><section class="panel"><div class="panel-heading panel-padding"><div><h2>Recent approval requests</h2><p>Items requiring administrative review</p></div><button class="text-button" data-demo-action="approval">View all <span>→</span></button></div><div class="table-scroll"><table><thead><tr><th>REQUEST</th><th>SUBMITTED BY</th><th>DATE</th><th>STATUS</th></tr></thead><tbody><tr><td>CSC 415 · Software Engineering</td><td>Dr. Musa Bello</td><td>27 Oct 2025</td><td><span class="table-status at-risk">Pending</span></td></tr><tr><td>EEE 302 · Digital Systems</td><td>Engr. N. Ibrahim</td><td>26 Oct 2025</td><td><span class="table-status at-risk">Pending</span></td></tr><tr><td>GST 204 · Communication Skills</td><td>Dr. Amina Yusuf</td><td>25 Oct 2025</td><td><span class="table-status">Approved</span></td></tr></tbody></table></div></section><section class="panel admin-health"><div class="panel-heading panel-padding"><div><h2>Programme health</h2><p>Attendance activity this week</p></div></div><div class="health-score"><strong>82%</strong><span>Average attendance</span></div><div class="progress-track"><div class="progress-fill" style="width:82%"></div></div><div class="health-list"><div><span>Sessions recorded</span><strong>342</strong></div><div><span>Students at risk</span><strong>214</strong></div><div><span>Departments active</span><strong>12 / 12</strong></div></div></section></div>
+      </section>
+
+      <section class="page" id="page-student" aria-labelledby="studentTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT PORTAL</p><h1 id="studentTitle">Welcome back, Chiamaka</h1><p class="subheading">Keep track of your registration and class attendance.</p></div><button class="button button-primary" data-demo-action="checkin">Check in to class <span>→</span></button></div>
+        <div class="role-context"><span class="demo-dot"></span><strong>Student demonstration view</strong><span>Attendance figures shown below are sample records.</span></div>
+        <div class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Registration status</span><span class="stat-icon icon-green">✓</span></div><div class="stat-value status-value">Approved</div><div class="stat-foot">Verified for first semester</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Approved courses</span><span class="stat-icon icon-blue">▦</span></div><div class="stat-value">6</div><div class="stat-foot">18 credit units registered</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Overall attendance</span><span class="stat-icon icon-lilac">◉</span></div><div class="stat-value">88<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">Good standing</span> above 75% threshold</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-orange">↗</span></div><div class="stat-value">42 / 48</div><div class="stat-foot">6 sessions missed</div></article></div>
+        <section class="panel"><div class="panel-heading panel-padding"><div><h2>Recent attendance records</h2><p>Your latest class check-ins</p></div><button class="text-button" data-demo-action="records">View attendance history <span>→</span></button></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>TIME</th><th>VENUE</th><th>STATUS</th></tr></thead><tbody><tr><td>CSC 301 · Data Structures</td><td>27 Oct 2025</td><td>10:00 AM</td><td>Main Lecture Theatre</td><td><span class="table-status">Present</span></td></tr><tr><td>CSC 305 · Database Systems</td><td>25 Oct 2025</td><td>1:30 PM</td><td>Computer Science Lab</td><td><span class="table-status">Present</span></td></tr><tr><td>GST 201 · Entrepreneurship</td><td>24 Oct 2025</td><td>9:00 AM</td><td>Main Classroom</td><td><span class="table-status at-risk">Absent</span></td></tr></tbody></table></div></section>
+      </section>
+
       <section class="page" id="page-sessions" aria-labelledby="sessionsTitle">
         <div class="welcome-row page-intro"><div><p class="eyebrow">YOUR TEACHING SCHEDULE</p><h1 id="sessionsTitle">Class sessions</h1><p class="subheading">Create a secure check-in for your next class.</p></div><button class="button button-primary" id="createSessionBtn2"><span class="button-plus">＋</span> Create a session</button></div>
         <div class="session-tabs"><button class="session-tab active" data-filter="all">All sessions</button><button class="session-tab" data-filter="open">Open now</button><button class="session-tab" data-filter="upcoming">Upcoming</button><button class="session-tab" data-filter="ended">Ended</button></div>
@@ -103,6 +125,40 @@
         <div class="report-callout"><span class="callout-icon">◎</span><div><strong>Exam eligibility threshold: 75%</strong><p>Students below the attendance threshold may not meet your course's attendance requirement.</p></div><span class="threshold-chip">Loading…</span></div>
         <div class="panel"><div class="panel-heading report-heading"><div><h2>Students below attendance threshold</h2><p>Based on recorded attendance for this semester</p></div><select id="reportCourse" aria-label="Filter report by course"><option value="">All courses</option></select></div><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>ATTENDANCE</th><th>SESSIONS ATTENDED</th></tr></thead><tbody id="reportTableBody"></tbody></table></div><div class="empty-message hidden" id="noAtRisk">No students are below the threshold for this course.</div></div>
       </section>
+
+      <section class="page" id="page-lecturers" aria-labelledby="lecturersTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION</p><h1 id="lecturersTitle">Lecturer management</h1><p class="subheading">Invite, review and manage lecturer accounts.</p></div><button class="button button-primary" id="inviteLecturerBtn">＋ Create invitation</button></div>
+        <div class="panel"><div class="roster-toolbar"><label class="search-input"><span>⌕</span><input id="lecturerSearch" type="search" placeholder="Search name, staff ID or email"></label><select id="lecturerStatusFilter" aria-label="Filter lecturers"><option value="all">All statuses</option><option value="pending">Pending approval</option><option value="active">Active</option><option value="suspended">Suspended</option></select></div><div class="table-scroll"><table><thead><tr><th>LECTURER</th><th>STAFF ID</th><th>DEPARTMENT</th><th>COURSES</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="lecturerTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-courses" aria-labelledby="coursesTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ACADEMIC SETUP</p><h1 id="coursesTitle">Course management</h1><p class="subheading">Manage courses, sessions and lecturer assignments.</p></div><button class="button button-primary" id="createCourseBtn">＋ Add course</button></div>
+        <div class="panel"><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DEPARTMENT</th><th>LEVEL</th><th>SEMESTER</th><th>LECTURER</th><th>ENROLLED</th></tr></thead><tbody id="adminCourseTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-approvals" aria-labelledby="approvalsTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION</p><h1 id="approvalsTitle">Approval center</h1><p class="subheading">Review lecturer applications and student registration requests.</p></div></div>
+        <div class="dashboard-bottom"><section class="panel"><div class="panel-heading panel-padding"><div><h2>Pending lecturer applications</h2><p>Only approved and active lecturers can access teaching tools.</p></div></div><div id="pendingLecturerApprovals" class="approval-list"></div></section><section class="panel"><div class="panel-heading panel-padding"><div><h2>Pending student enrolments</h2><p>Course approvals are independent for every requested course.</p></div></div><div id="pendingStudentApprovals" class="approval-list"></div></section></div>
+      </section>
+
+      <section class="page" id="page-student-approvals" aria-labelledby="studentApprovalsTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">LECTURER WORKSPACE</p><h1 id="studentApprovalsTitle">Student approvals</h1><p class="subheading">Review pending enrolments for courses assigned to you.</p></div></div><div class="panel"><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>VERIFICATION</th><th>ACTION</th></tr></thead><tbody id="studentApprovalTableBody"></tbody></table></div></div>
+      </section>
+
+      <section class="page" id="page-registration-status" aria-labelledby="registrationStatusTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT PORTAL</p><h1 id="registrationStatusTitle">Registration status</h1><p class="subheading">Track identity verification and each course approval separately.</p></div></div><div class="panel registration-status-panel" id="registrationStatusContent"></div>
+      </section>
+
+      <section class="page" id="page-devices" aria-labelledby="devicesTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT SECURITY</p><h1 id="devicesTitle">My devices</h1><p class="subheading">Only approved devices can submit attendance.</p></div><button class="button button-primary" id="requestDeviceChangeBtn">Request device change</button></div>
+        <div class="role-context"><span class="demo-dot"></span><strong>Device approval is server-controlled</strong><span>Browser and IP details are risk signals, not device identity.</span></div>
+        <div class="panel"><div class="panel-heading panel-padding"><div><h2>Registered devices</h2><p>Review active, pending and revoked credentials.</p></div></div><div id="deviceList" class="device-list"></div></div>
+      </section>
+
+      <section class="page" id="page-device-approvals" aria-labelledby="deviceApprovalsTitle">
+        <div class="welcome-row page-intro"><div><p class="eyebrow">SECURITY REVIEW</p><h1 id="deviceApprovalsTitle">Device approvals</h1><p class="subheading">Review device-change requests within your authorized course scope.</p></div></div>
+        <div class="panel"><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>REQUESTED DEVICE</th><th>REASON</th><th>VERIFICATION</th><th>STATUS</th><th>ACTION</th></tr></thead><tbody id="deviceApprovalTableBody"></tbody></table></div></div>
+      </section>
     </div>
   </main>
 
@@ -111,6 +167,7 @@
       <div class="modal-header"><div><p class="eyebrow">NEW CLASS SESSION</p><h2 id="modalTitle">Set up your class</h2><p>Students can check in during the session window.</p></div><button class="close-button" data-close="sessionModal" aria-label="Close dialog">×</button></div>
       <form id="sessionForm">
         <label class="field-label" for="sessionCourse">Course</label><select id="sessionCourse" required></select>
+        <label class="field-label" for="sessionTopic">Lecture topic</label><input id="sessionTopic" type="text" placeholder="e.g. Trees and graph traversal" required maxlength="120">
         <div class="field-grid"><div><label class="field-label" for="sessionDate">Date</label><input id="sessionDate" type="date" required></div><div><label class="field-label" for="sessionRadius">Check-in radius</label><div class="input-suffix"><input id="sessionRadius" type="number" min="10" max="2000" value="50" required><span>metres</span></div></div></div>
         <div class="field-grid"><div><label class="field-label" for="sessionStart">Start time</label><input id="sessionStart" type="time" required></div><div><label class="field-label" for="sessionEnd">End time</label><input id="sessionEnd" type="time" required></div></div>
         <label class="field-label" for="sessionLocation">Class location</label><input id="sessionLocation" type="text" value="NAUB Main Campus, Biu" required>
@@ -125,8 +182,8 @@
   <div class="modal-backdrop hidden" id="qrModal" role="presentation">
     <section class="modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
       <div class="modal-header"><div><p class="eyebrow">LIVE CHECK-IN</p><h2 id="qrTitle">Session QR code</h2><p id="qrCourseName">CSC 301 · Data Structures</p></div><button class="close-button" data-close="qrModal" aria-label="Close dialog">×</button></div>
-      <div class="qr-content"><div class="qr-holder" id="qrCode"><div class="qr-placeholder">QR</div></div><div class="qr-instructions"><span class="live-pill"><i></i> CHECK-IN OPEN</span><h3>Ready when you are</h3><p>Ask students to scan with their phone camera. Their browser will open the check-in page.</p><div class="qr-meta"><span>⌖</span><div><strong id="qrLocation">NAUB Main Campus, Biu</strong><small id="qrWindow">10:00 AM – 11:00 AM</small></div></div><div class="token-row"><span>SESSION TOKEN</span><code id="qrToken">••••••••</code><button id="copySessionUrl" class="copy-button">Copy link</button></div></div></div>
-      <div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> students checked in <span class="live-caption">Updates on refresh</span></div><div class="session-actions"><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Regenerate QR</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div>
+      <div class="qr-content"><div class="qr-holder" id="qrCode"><div class="qr-placeholder">QR</div></div><div class="qr-instructions"><span class="live-pill"><i></i> <span id="qrStatusLabel">CHECK-IN OPEN</span></span><h3 id="qrTopic">Ready when you are</h3><p>Ask students to scan with their phone camera. Their browser will open the secure, session-specific check-in page.</p><div class="qr-countdown"><span>QR rotates in</span><strong id="qrCountdown">30s</strong></div><div class="qr-meta"><span>⌖</span><div><strong id="qrLocation">NAUB Main Campus, Biu</strong><small id="qrWindow">10:00 AM – 11:00 AM</small></div></div><div class="token-row"><span>SESSION TOKEN</span><code id="qrToken">••••••••</code><button id="copySessionUrl" class="copy-button">Copy link</button></div></div></div>
+      <div class="qr-connection" id="qrConnectionStatus" role="status"><span class="live-indicator"></span><span>Connected · live register</span></div><div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> / <span id="approvedCount">0</span> present <span class="live-caption" id="qrProgressText">Live register</span></div><div class="session-actions"><button class="button button-small button-outline" id="fullscreenQrBtn">Full screen</button><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Replace QR</button><button class="button button-small button-outline" id="finalizeSessionBtn">Finalize</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div><div class="qr-progress"><div id="qrProgressBar"></div></div>
       <div class="qr-disclaimer">Demo only: local browser data does not provide authoritative identity, GPS, or attendance verification.</div>
     </section>
   </div>
@@ -136,7 +193,7 @@
       <div class="modal-header"><div><p class="eyebrow">STUDENT CHECK-IN</p><h2 id="scanTitle">Mark your attendance</h2><p id="scanCourse">CSC 301 · Data Structures</p></div><button class="close-button" data-close="scanModal" aria-label="Close dialog">×</button></div>
       <div id="scanFormWrap">
         <div class="scan-session-card"><span class="scan-icon">▦</span><div><strong id="scanLocation">NAUB Main Campus, Biu</strong><small id="scanTime">Check-in is open</small></div><span class="live-pill"><i></i> OPEN</span></div>
-        <label class="field-label" for="scanStudent">Your student account</label><select id="scanStudent"></select>
+        <button class="button button-outline button-wide scan-camera-button" id="startCameraBtn" type="button">Scan with camera</button><div class="camera-scanner hidden" id="cameraScanner"><video id="scanVideo" playsinline muted aria-label="Camera QR scanner"></video><p>Point your camera at the lecturer&apos;s QR code.</p><button class="button button-small button-outline" id="stopCameraBtn" type="button">Stop camera</button></div><label class="field-label" for="scanStudent">Your student account</label><select id="scanStudent"></select>
         <div class="device-note"><span>▣</span><span>Check in using your registered device. Your location is used only to verify that you're near the classroom.</span></div>
         <div class="location-status" id="locationStatus"><span class="location-pin">⌖</span><div><strong>Location permission needed</strong><small>We’ll check your GPS accuracy before submitting.</small></div></div>
         <div class="form-error hidden" id="scanError" role="alert"></div>
@@ -190,6 +247,12 @@
         <button class="button button-primary auth-submit" type="submit">Review registration <span>→</span></button>
         <p class="auth-switch-copy">Already registered? <button type="button" data-auth-tab="login">Sign in instead</button></p>
       </form>
+    </section>
+  </div>
+  <div class="modal-backdrop hidden" id="deviceChangeModal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="deviceChangeTitle">
+      <div class="modal-header"><div><p class="eyebrow">SECURITY REQUEST</p><h2 id="deviceChangeTitle">Request a device change</h2><p>Identity verification is required before activation.</p></div><button class="close-button" data-close="deviceChangeModal" aria-label="Close dialog">×</button></div>
+      <form id="deviceChangeForm"><label class="field-label" for="deviceLabel">New device label</label><input id="deviceLabel" required maxlength="80" placeholder="e.g. My Android Phone"><label class="field-label" for="deviceType">Device type</label><select id="deviceType" required><option value="">Select type</option><option>Phone</option><option>Tablet</option><option>Laptop</option><option>Desktop</option></select><label class="field-label" for="deviceReason">Reason for change</label><select id="deviceReason" required><option value="">Select reason</option><option>New phone</option><option>Lost phone</option><option>Damaged phone</option><option>Factory reset</option><option>Browser credentials cleared</option><option>Previous device unavailable</option></select><label class="field-label" for="deviceNotes">Additional verification details</label><textarea id="deviceNotes" maxlength="500" placeholder="Provide any details that help staff verify this request."></textarea><div class="form-error hidden" id="deviceChangeError" role="alert"></div><div class="modal-actions"><button type="button" class="button button-outline" data-close="deviceChangeModal">Cancel</button><button type="submit" class="button button-primary">Submit request <span>→</span></button></div></form>
     </section>
   </div>
   <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>

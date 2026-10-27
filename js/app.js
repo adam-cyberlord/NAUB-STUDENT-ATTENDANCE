@@ -9,6 +9,17 @@ const COURSES = [
   { id: 'csc311', code: 'CSC 311', name: 'Operating Systems', students: 28, rate: 91, tint: 'amber', room: 'Lecture Hall B' },
   { id: 'gst201', code: 'GST 201', name: 'Entrepreneurship Studies', students: 16, rate: 68, tint: 'purple', room: 'Main Classroom' },
 ];
+const LECTURERS = [
+  { id: 'l1', name: 'Dr. Amina Yusuf', staffId: 'NAUB-CS-014', email: 'amina.yusuf@naub.edu.ng', department: 'Computer Science', courseIds: ['csc301', 'csc305'], status: 'active', approval: 'approved' },
+  { id: 'l2', name: 'Dr. Musa Bello', staffId: 'NAUB-CS-027', email: 'musa.bello@naub.edu.ng', department: 'Computer Science', courseIds: ['csc311'], status: 'pending', approval: 'pending' },
+  { id: 'l3', name: 'Engr. N. Ibrahim', staffId: 'NAUB-EEE-008', email: 'n.ibrahim@naub.edu.ng', department: 'Electrical Engineering', courseIds: [], status: 'suspended', approval: 'approved' },
+];
+const ENROLMENT_REQUESTS = [
+  { id: 'en1', studentId: 'u3', courseId: 'csc301', status: 'pending', reason: '' },
+  { id: 'en2', studentId: 'u5', courseId: 'csc305', status: 'pending', reason: '' },
+  { id: 'en3', studentId: 'u7', courseId: 'gst201', status: 'rejected', reason: 'Please confirm your department details.' },
+];
+
 const STUDENTS = [
   { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11 },
   { id: 'u2', name: 'Ibrahim Musa', matric: '190401018', courseIds: ['csc301', 'csc311'], rate: 84, attended: 10 },
@@ -31,6 +42,8 @@ let sessionFilter = 'all';
 let toastTimer;
 let supabaseClientPromise;
 let isAuthenticated = false;
+let qrCountdownTimer = null;
+const QR_ROTATION_SECONDS = 30;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -43,9 +56,12 @@ function init() {
   bindExports();
   bindTheme();
   bindUtilityControls();
+  bindRoleSwitcher();
   bindStudentAuth();
+  bindDeviceManagement();
   populateCourseSelects();
   renderAll();
+  renderWorkflowPages();
   setTodayLabel();
   setSessionDefaults();
   openRouteSession();
@@ -85,11 +101,13 @@ function matricEmail(matric) {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { sessions: [], attendance: [] };
+    if (!saved) return { sessions: [], attendance: [], devices: [], deviceRequests: [] };
     const parsed = JSON.parse(saved);
     if (!parsed || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.attendance)) {
       throw new Error('Stored demo data has an unexpected shape.');
     }
+    parsed.devices ||= [];
+    parsed.deviceRequests ||= [];
     return parsed;
   } catch (error) {
     console.error('Unable to load NAUB attendance demo data:', error);
@@ -107,6 +125,8 @@ function persist() {
 }
 
 function seedState() {
+  state.devices ||= [{ id: deviceIdFor('u1'), label: 'Current browser', type: 'Browser', browser: navigator.userAgent.slice(0, 80), registeredAt: new Date().toISOString(), lastSeen: new Date().toISOString(), status: 'Active' }];
+  state.deviceRequests ||= [];
   if (state.sessions.length) return;
   const now = new Date();
   const activeStart = new Date(now.getTime() - 15 * 60_000);
@@ -131,6 +151,9 @@ function makeSeedSession(courseId, start, end, location) {
     longitude: 12.19,
     radius: 50,
     token: randomId() + randomId(),
+    qrIssuedAt: new Date().toISOString(),
+    topic: 'Regular lecture',
+    expiresIn: QR_ROTATION_SECONDS,
     status: 'open',
     demo: true,
   };
@@ -306,8 +329,56 @@ function setAuthFeedback(id, message, isError) {
   feedback.classList.toggle('error', isError);
 }
 
+function bindDeviceManagement() {
+  const deviceForm = document.getElementById('deviceChangeForm');
+  document.getElementById('requestDeviceChangeBtn')?.addEventListener('click', () => openModal('deviceChangeModal'));
+  deviceForm?.addEventListener('submit', event => {
+    event.preventDefault();
+    const request = { id: `DCR-${new Date().getFullYear()}-${Math.random().toString(36).slice(2, 8).toUpperCase()}`, studentId: 'u1', label: document.getElementById('deviceLabel').value.trim(), type: document.getElementById('deviceType').value, reason: document.getElementById('deviceReason').value, notes: document.getElementById('deviceNotes').value.trim(), status: 'Pending', verification: 'Required', requestedAt: new Date().toISOString() };
+    state.deviceRequests = [request, ...(state.deviceRequests || [])];
+    persist(); renderDevicePages(); closeModal('deviceChangeModal'); deviceForm.reset(); showToast(`Request ${request.id} submitted for review.`);
+  });
+  renderDevicePages();
+}
+
+function renderDevicePages() {
+  const devices = document.getElementById('deviceList');
+  const currentId = deviceIdFor('u1');
+  if (devices) devices.innerHTML = (state.devices || []).map(device => `<article class="device-card"><div class="device-card-icon">▣</div><div class="device-card-copy"><strong>${escapeHtml(device.label)}</strong><span>${escapeHtml(device.type)} · ${escapeHtml(device.browser)}</span><small>Registered ${escapeHtml(formatDate(device.registeredAt.slice(0, 10)))} · Last seen ${escapeHtml(formatDate(device.lastSeen.slice(0, 10)))}</small></div><span class="table-status ${device.status !== 'Active' ? 'at-risk' : ''}">${escapeHtml(device.status)}${device.id === currentId ? ' · Current' : ''}</span></article>`).join('') || '<div class="empty-state">No registered devices yet.</div>';
+  const approvals = document.getElementById('deviceApprovalTableBody');
+  if (approvals) approvals.innerHTML = (state.deviceRequests || []).map(request => `<tr><td><strong>Chiamaka Okafor</strong><small class="table-subtext">190401001</small></td><td>${escapeHtml(request.label)}<small class="table-subtext">${escapeHtml(request.type)}</small></td><td>${escapeHtml(request.reason)}</td><td><span class="table-status at-risk">${escapeHtml(request.verification)}</span></td><td><span class="table-status at-risk">${escapeHtml(request.status)}</span></td><td>${request.status === 'Pending' ? `<button class="button button-small button-primary" data-approve-device="${escapeHtml(request.id)}">Approve</button><button class="button button-small button-outline" data-reject-device="${escapeHtml(request.id)}">Reject</button>` : escapeHtml(request.id)}</td></tr>`).join('') || '<tr><td colspan="6" class="empty-state">No device requests require review.</td></tr>';
+  document.querySelectorAll('[data-approve-device]').forEach(button => button.onclick = () => updateDeviceRequest(button.dataset.approveDevice, 'Approved'));
+  document.querySelectorAll('[data-reject-device]').forEach(button => button.onclick = () => updateDeviceRequest(button.dataset.rejectDevice, 'Rejected'));
+}
+
+function updateDeviceRequest(id, status) {
+  const request = (state.deviceRequests || []).find(item => item.id === id);
+  if (!request) return;
+  request.status = status; request.reviewedAt = new Date().toISOString(); request.reviewer = 'authorized-staff';
+  if (status === 'Approved') state.devices.unshift({ id: randomId(), label: request.label, type: request.type, browser: navigator.userAgent.slice(0, 80), registeredAt: new Date().toISOString(), lastSeen: new Date().toISOString(), status: 'Active' });
+  persist(); renderDevicePages(); showToast(`Device request ${status.toLowerCase()}.`, status === 'Rejected' ? 'error' : 'success');
+}
+
+function bindRoleSwitcher() {
+  const roleSelect = document.getElementById('roleSelect');
+  roleSelect.addEventListener('change', () => {
+    const role = roleSelect.value;
+    document.body.dataset.role = role;
+    const labels = { lecturer: 'Lecturer workspace', admin: 'Admin workspace', student: 'Student workspace' };
+    document.querySelector('.workspace-label').textContent = labels[role];
+    document.querySelector('.breadcrumb > span').textContent = labels[role];
+    document.querySelector('.profile-copy small').textContent = role === 'admin' ? 'Administrator · NAUB' : role === 'student' ? 'Student · NAUB' : 'Lecturer · NAUB';
+    document.querySelector('.profile-copy strong').textContent = role === 'admin' ? 'Ibrahim Sule' : role === 'student' ? 'Chiamaka Okafor' : 'Dr. Amina Yusuf';
+    document.querySelector('.top-avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
+    document.querySelector('.avatar').textContent = role === 'admin' ? 'IS' : role === 'student' ? 'CO' : 'AY';
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('hidden', (item.classList.contains('admin-only') && role !== 'admin') || (item.classList.contains('student-only') && role !== 'student') || (item.classList.contains('lecturer-only') && role !== 'lecturer')));
+    navigateTo(role === 'admin' ? 'admin' : role === 'student' ? 'student' : 'dashboard');
+  });
+  document.querySelectorAll('[data-demo-action]').forEach(button => button.addEventListener('click', () => showToast('This action is part of the demonstration view.')));
+}
+
 function navigateTo(page) {
-  const title = { dashboard: 'Overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports' }[page];
+  const title = { dashboard: 'Overview', admin: 'Admin overview', student: 'Student overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports', lecturers: 'Lecturer management', courses: 'Course management', approvals: 'Approval center', 'student-approvals': 'Student approvals', 'registration-status': 'Registration status', devices: 'My devices', 'device-approvals': 'Device approvals' }[page];
   if (!title) return;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
   document.querySelectorAll('.page').forEach(section => section.classList.toggle('active', section.id === `page-${page}`));
@@ -337,7 +408,11 @@ function bindSessionForm() {
     }
     const course = COURSES.find(item => item.id === document.getElementById('sessionCourse').value);
     const locationName = document.getElementById('sessionLocation').value.trim();
+    const topic = document.getElementById('sessionTopic').value.trim();
+    if (!topic) return formError(error, 'Add a lecture topic.');
     if (!locationName) return formError(error, 'Add a classroom or venue name.');
+    const overlap = state.sessions.some(item => item.id !== editingSessionId && item.courseId === document.getElementById('sessionCourse').value && item.date === date && item.status !== 'finalized' && startAt < new Date(item.endAt) && endAt > new Date(item.startAt));
+    if (overlap) return formError(error, 'This course already has an overlapping attendance session.');
     let session;
     if (editingSessionId) {
       session = state.sessions.find(item => item.id === editingSessionId);
@@ -348,6 +423,8 @@ function bindSessionForm() {
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
         location: locationName,
+        topic,
+        expiresIn: QR_ROTATION_SECONDS,
         latitude,
         longitude,
         radius,
@@ -361,6 +438,8 @@ function bindSessionForm() {
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
         location: locationName,
+        topic,
+        expiresIn: QR_ROTATION_SECONDS,
         latitude,
         longitude,
         radius,
@@ -389,6 +468,7 @@ function openSessionForm(sessionId = null) {
     document.getElementById('sessionStart').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
     document.getElementById('sessionEnd').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
     document.getElementById('sessionCourse').value = session.courseId;
+    document.getElementById('sessionTopic').value = session.topic || 'Regular lecture';
     document.getElementById('sessionRadius').value = session.radius;
     document.getElementById('sessionLocation').value = session.location;
     document.getElementById('sessionLat').value = session.latitude;
@@ -414,6 +494,7 @@ function setSessionDefaults() {
   document.getElementById('sessionStart').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
   document.getElementById('sessionEnd').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
   document.getElementById('sessionCourse').value = COURSES[0].id;
+  document.getElementById('sessionTopic').value = '';
 }
 
 function populateCourseSelects() {
@@ -433,6 +514,10 @@ function bindScanFlow() {
   document.getElementById('copySessionUrl').addEventListener('click', copySessionUrl);
   document.getElementById('closeSessionBtn').addEventListener('click', closeActiveSession);
   document.getElementById('rotateQrBtn').addEventListener('click', rotateSessionQr);
+  document.getElementById('finalizeSessionBtn').addEventListener('click', finalizeActiveSession);
+  document.getElementById('fullscreenQrBtn').addEventListener('click', toggleQrFullscreen);
+  document.getElementById('startCameraBtn').addEventListener('click', startCameraScanner);
+  document.getElementById('stopCameraBtn').addEventListener('click', stopCameraScanner);
   document.getElementById('testScanBtn').addEventListener('click', () => {
     const session = state.sessions.find(item => item.id === activeSessionId);
     if (session) {
@@ -452,7 +537,29 @@ function openQrModal(sessionId) {
   document.getElementById('qrLocation').textContent = session.location;
   document.getElementById('qrWindow').textContent = `${formatTime(session.startAt)} – ${formatTime(session.endAt)} · ${session.radius} m radius`;
   document.getElementById('qrToken').textContent = `${session.token.slice(0, 8)}…${session.token.slice(-6)}`;
-  document.getElementById('liveCount').textContent = String(checkinsFor(session.id).length);
+  document.getElementById('qrTopic').textContent = session.topic || 'Regular lecture';
+  document.getElementById('qrStatusLabel').textContent = session.status === 'finalized' ? 'ATTENDANCE FINALIZED' : session.status === 'closed' ? 'SESSION CLOSED' : 'CHECK-IN OPEN';
+  const approved = STUDENTS.filter(student => student.courseIds.includes(session.courseId)).length;
+  const present = checkinsFor(session.id).length;
+  document.getElementById('approvedCount').textContent = String(approved);
+  document.getElementById('liveCount').textContent = String(present);
+  document.getElementById('qrProgressText').textContent = `${approved ? Math.round((present / approved) * 100) : 0}% attendance progress`;
+  document.getElementById('qrProgressBar').style.width = `${approved ? Math.min(100, (present / approved) * 100) : 0}%`;
+  document.getElementById('finalizeSessionBtn').disabled = session.status === 'finalized';
+  document.getElementById('finalizeSessionBtn').textContent = session.status === 'finalized' ? 'Finalized' : 'Finalize';
+  clearInterval(qrCountdownTimer);
+  let secondsLeft = session.qrIssuedAt ? Math.max(0, QR_ROTATION_SECONDS - Math.floor((Date.now() - Date.parse(session.qrIssuedAt)) / 1000)) : QR_ROTATION_SECONDS;
+  document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
+  qrCountdownTimer = setInterval(() => {
+    secondsLeft -= 1;
+    if (secondsLeft <= 0) {
+      document.getElementById('qrStatusLabel').textContent = 'RENEWING QR CODE';
+      document.getElementById('qrConnectionStatus').innerHTML = '<span class="live-indicator"></span><span>Renewing secure token…</span>';
+      rotateSessionQr(true);
+      return;
+    }
+    document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
+  }, 1000);
   document.getElementById('closeSessionBtn').disabled = session.status === 'closed';
   document.getElementById('closeSessionBtn').textContent = session.status === 'closed' ? 'Session closed' : 'Close session';
   document.getElementById('qrCode').replaceChildren();
@@ -468,6 +575,57 @@ function openQrModal(sessionId) {
     document.getElementById('qrCode').textContent = 'QR library unavailable. Copy the check-in link instead.';
   }
   openModal('qrModal');
+}
+
+let scanStream = null;
+let scanFrameTimer = null;
+
+async function toggleQrFullscreen() {
+  const modal = document.querySelector('#qrModal .modal');
+  if (!document.fullscreenElement) {
+    try { await modal.requestFullscreen(); } catch (error) { showToast('Full-screen mode is not available in this browser.', 'error'); }
+  } else {
+    await document.exitFullscreen();
+  }
+}
+
+async function startCameraScanner() {
+  const video = document.getElementById('scanVideo');
+  if (!navigator.mediaDevices?.getUserMedia) return failScan('Camera access is not available. Use the manual check-in link or ask your lecturer for help.');
+  try {
+    scanStream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' } }, audio: false });
+    video.srcObject = scanStream;
+    await video.play();
+    document.getElementById('cameraScanner').classList.remove('hidden');
+    if ('BarcodeDetector' in window) {
+      const detector = new BarcodeDetector({ formats: ['qr_code'] });
+      const scanFrame = async () => {
+        if (!scanStream) return;
+        try {
+          const codes = await detector.detect(video);
+          const token = codes[0]?.rawValue?.match(/\/a\/([^/?#]+)/)?.[1] || codes[0]?.rawValue;
+          if (token) { stopCameraScanner(); openScanModal(state.sessions.find(item => item.token === token), token); return; }
+        } catch (error) { console.warn('Camera QR detection failed:', error); }
+        scanFrameTimer = requestAnimationFrame(scanFrame);
+      };
+      scanFrameTimer = requestAnimationFrame(scanFrame);
+    } else {
+      showToast('Camera opened. This browser does not support automatic QR detection; use the link fallback.', 'error');
+    }
+  } catch (error) {
+    console.warn('Camera permission failed:', error);
+    failScan('Camera permission was denied or unavailable. Use the manual check-in link instead.');
+  }
+}
+
+function stopCameraScanner() {
+  if (scanFrameTimer) cancelAnimationFrame(scanFrameTimer);
+  scanFrameTimer = null;
+  if (scanStream) scanStream.getTracks().forEach(track => track.stop());
+  scanStream = null;
+  const video = document.getElementById('scanVideo');
+  if (video) video.srcObject = null;
+  document.getElementById('cameraScanner')?.classList.add('hidden');
 }
 
 function scanUrl(token) {
@@ -500,13 +658,25 @@ function closeActiveSession() {
   showToast('Session closed. New check-ins are disabled.');
 }
 
-function rotateSessionQr() {
+function finalizeActiveSession() {
+  const session = state.sessions.find(item => item.id === activeSessionId);
+  if (!session || session.status === 'finalized') return;
+  session.status = 'finalized';
+  session.closedAt = new Date().toISOString();
+  persist();
+  openQrModal(session.id);
+  renderAll();
+  showToast('Attendance finalized. The register is now read-only.');
+}
+
+function rotateSessionQr(autoRotate = false) {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'closed') {
     showToast('A closed session cannot receive a new QR code.', 'error');
     return;
   }
   session.token = randomId() + randomId();
+  session.qrIssuedAt = new Date().toISOString();
   persist();
   openQrModal(session.id);
   showToast('QR code regenerated. The previous link no longer works in this browser demo.');
@@ -602,7 +772,8 @@ async function checkIn(useDemoLocation) {
 
 function validateSessionBeforeLocation(session) {
   if (!session) return 'This QR code is invalid or does not belong to a session in this browser.';
-  if (session.status === 'closed') return 'This class session has been closed. Ask your lecturer if you think this is a mistake.';
+  if (session.status === 'closed' || session.status === 'finalized') return 'This attendance session is no longer accepting check-ins.';
+  if (session.qrIssuedAt && Date.now() - Date.parse(session.qrIssuedAt) > QR_ROTATION_SECONDS * 1000) return 'This QR code has expired. Scan the latest code displayed by your lecturer.';
   const now = Date.now();
   if (now < Date.parse(session.startAt) || now > Date.parse(session.endAt)) return 'This check-in is outside the session time window.';
   return '';
@@ -748,6 +919,26 @@ function bindUtilityControls() {
   document.getElementById('dismissBanner').addEventListener('click', () => {
     document.querySelector('.demo-banner').classList.add('hidden');
   });
+}
+
+function renderWorkflowPages() {
+  const lecturerBody = document.getElementById('lecturerTableBody');
+  if (lecturerBody) lecturerBody.innerHTML = LECTURERS.map(lecturer => `<tr><td><strong>${escapeHtml(lecturer.name)}</strong><small class="table-subtext">${escapeHtml(lecturer.email)}</small></td><td>${escapeHtml(lecturer.staffId)}</td><td>${escapeHtml(lecturer.department)}</td><td>${lecturer.courseIds.length}</td><td><span class="table-status ${lecturer.status === 'active' ? '' : 'at-risk'}">${escapeHtml(lecturer.status)}</span></td><td><button class="button button-small button-soft" data-lecturer-action="${lecturer.id}">${lecturer.status === 'pending' ? 'Approve' : 'View'}</button></td></tr>`).join('');
+  const courseBody = document.getElementById('adminCourseTableBody');
+  if (courseBody) courseBody.innerHTML = COURSES.map(course => `<tr><td><strong>${escapeHtml(course.code)}</strong><small class="table-subtext">${escapeHtml(course.name)}</small></td><td>Computer Science</td><td>300</td><td>First Semester</td><td>${course.id === 'csc301' ? 'Dr. Amina Yusuf' : 'Unassigned'}</td><td>${course.students}</td></tr>`).join('');
+  const pendingLecturers = document.getElementById('pendingLecturerApprovals');
+  if (pendingLecturers) pendingLecturers.innerHTML = LECTURERS.filter(item => item.approval === 'pending').map(item => `<div class="approval-item"><div><strong>${escapeHtml(item.name)}</strong><span>${escapeHtml(item.staffId)} · ${escapeHtml(item.department)}</span></div><button class="button button-small button-primary" data-approve-lecturer="${item.id}">Approve</button></div>`).join('') || '<div class="empty-state">No pending lecturer applications.</div>';
+  const pendingStudents = document.getElementById('pendingStudentApprovals');
+  if (pendingStudents) pendingStudents.innerHTML = ENROLMENT_REQUESTS.filter(item => item.status === 'pending').map(item => { const student = STUDENTS.find(s => s.id === item.studentId); const course = COURSES.find(c => c.id === item.courseId); return `<div class="approval-item"><div><strong>${escapeHtml(student.name)}</strong><span>${escapeHtml(course.code)} · ${escapeHtml(student.matric)}</span></div><span class="table-status at-risk">Pending</span></div>`; }).join('') || '<div class="empty-state">No pending student enrolments.</div>';
+  const studentApprovals = document.getElementById('studentApprovalTableBody');
+  if (studentApprovals) studentApprovals.innerHTML = ENROLMENT_REQUESTS.filter(item => item.status === 'pending').map(item => { const student = STUDENTS.find(s => s.id === item.studentId); const course = COURSES.find(c => c.id === item.courseId); return `<tr><td>${escapeHtml(student.name)}</td><td>${escapeHtml(student.matric)}</td><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td><span class="table-status">Awaiting verification</span></td><td><button class="button button-small button-primary" data-approve-enrolment="${item.id}">Approve</button><button class="button button-small button-outline" data-reject-enrolment="${item.id}">Reject</button></td></tr>`; }).join('');
+  const status = document.getElementById('registrationStatusContent');
+  if (status) status.innerHTML = `<div class="registration-summary"><span class="status-pill upcoming"><i></i> Awaiting approval</span><h2>Registration submitted</h2><p>Your account is awaiting identity verification. Course decisions are tracked independently.</p></div>${ENROLMENT_REQUESTS.map(item => { const course = COURSES.find(c => c.id === item.courseId); return `<div class="status-row"><div><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><small>${item.status === 'rejected' ? escapeHtml(item.reason) : 'Lecturer approval is pending.'}</small></div><span class="table-status ${item.status === 'approved' ? '' : 'at-risk'}">${escapeHtml(item.status)}</span></div>`; }).join('')}`;
+  document.querySelectorAll('[data-approve-lecturer]').forEach(button => button.onclick = () => { const lecturer = LECTURERS.find(item => item.id === button.dataset.approveLecturer); lecturer.status = 'active'; lecturer.approval = 'approved'; renderWorkflowPages(); showToast('Lecturer approved and activated.'); });
+  document.querySelectorAll('[data-approve-enrolment]').forEach(button => button.onclick = () => { const request = ENROLMENT_REQUESTS.find(item => item.id === button.dataset.approveEnrolment); request.status = 'approved'; renderWorkflowPages(); showToast('Course enrolment approved.'); });
+  document.querySelectorAll('[data-reject-enrolment]').forEach(button => button.onclick = () => { const request = ENROLMENT_REQUESTS.find(item => item.id === button.dataset.rejectEnrolment); request.status = 'rejected'; request.reason = 'Rejected by lecturer; correction required.'; renderWorkflowPages(); showToast('Enrolment rejected with a correction reason.', 'error'); });
+  document.getElementById('inviteLecturerBtn')?.addEventListener('click', () => showToast('Invitation created with a secure, expiring token. Connect the invitation endpoint to persist it.', 'success'));
+  document.getElementById('createCourseBtn')?.addEventListener('click', () => showToast('Course creation form is ready for the course-management API.'));
 }
 
 function renderAll() {
