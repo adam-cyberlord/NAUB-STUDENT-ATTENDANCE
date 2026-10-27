@@ -298,6 +298,10 @@ td:first-child { color: var(--ink); font-weight: 600; }
 .qr-placeholder { color: #222; font: 700 12px Manrope, sans-serif; }
 .qr-instructions h3 { margin: 11px 0 5px; font-size: 15px; }
 .qr-instructions > p { max-width: 270px; margin-bottom: 13px; color: var(--muted); font-size: 10px; line-height: 1.55; }
+.qr-countdown { display: flex; align-items: center; justify-content: space-between; max-width: 270px; padding: 9px 10px; margin-bottom: 12px; border: 1px solid var(--line); border-radius: 7px; color: var(--muted); font-size: 9px; }
+.qr-countdown strong { color: var(--purple); font: 700 16px Manrope, sans-serif; }
+.qr-progress { height: 5px; overflow: hidden; margin-top: 10px; border-radius: 9px; background: var(--surface-soft); }
+.qr-progress div { width: 0; height: 100%; border-radius: inherit; background: var(--green); transition: width .25s ease; }
 .live-pill { color: var(--green); background: var(--green-soft); font-size: 8px; letter-spacing: .35px; }
 .live-pill i { animation: pulse 1.5s infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px color-mix(in srgb, currentColor, transparent 80%); } }

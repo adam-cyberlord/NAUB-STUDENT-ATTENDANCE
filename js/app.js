@@ -42,6 +42,8 @@ let sessionFilter = 'all';
 let toastTimer;
 let supabaseClientPromise;
 let isAuthenticated = false;
+let qrCountdownTimer = null;
+const QR_ROTATION_SECONDS = 30;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -144,6 +146,9 @@ function makeSeedSession(courseId, start, end, location) {
     longitude: 12.19,
     radius: 50,
     token: randomId() + randomId(),
+    qrIssuedAt: new Date().toISOString(),
+    topic: 'Regular lecture',
+    expiresIn: QR_ROTATION_SECONDS,
     status: 'open',
     demo: true,
   };
@@ -368,7 +373,11 @@ function bindSessionForm() {
     }
     const course = COURSES.find(item => item.id === document.getElementById('sessionCourse').value);
     const locationName = document.getElementById('sessionLocation').value.trim();
+    const topic = document.getElementById('sessionTopic').value.trim();
+    if (!topic) return formError(error, 'Add a lecture topic.');
     if (!locationName) return formError(error, 'Add a classroom or venue name.');
+    const overlap = state.sessions.some(item => item.id !== editingSessionId && item.courseId === document.getElementById('sessionCourse').value && item.date === date && item.status !== 'finalized' && startAt < new Date(item.endAt) && endAt > new Date(item.startAt));
+    if (overlap) return formError(error, 'This course already has an overlapping attendance session.');
     let session;
     if (editingSessionId) {
       session = state.sessions.find(item => item.id === editingSessionId);
@@ -379,6 +388,8 @@ function bindSessionForm() {
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
         location: locationName,
+        topic,
+        expiresIn: QR_ROTATION_SECONDS,
         latitude,
         longitude,
         radius,
@@ -392,6 +403,8 @@ function bindSessionForm() {
         startAt: startAt.toISOString(),
         endAt: endAt.toISOString(),
         location: locationName,
+        topic,
+        expiresIn: QR_ROTATION_SECONDS,
         latitude,
         longitude,
         radius,
@@ -420,6 +433,7 @@ function openSessionForm(sessionId = null) {
     document.getElementById('sessionStart').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
     document.getElementById('sessionEnd').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
     document.getElementById('sessionCourse').value = session.courseId;
+    document.getElementById('sessionTopic').value = session.topic || 'Regular lecture';
     document.getElementById('sessionRadius').value = session.radius;
     document.getElementById('sessionLocation').value = session.location;
     document.getElementById('sessionLat').value = session.latitude;
@@ -445,6 +459,7 @@ function setSessionDefaults() {
   document.getElementById('sessionStart').value = `${String(start.getHours()).padStart(2, '0')}:${String(start.getMinutes()).padStart(2, '0')}`;
   document.getElementById('sessionEnd').value = `${String(end.getHours()).padStart(2, '0')}:${String(end.getMinutes()).padStart(2, '0')}`;
   document.getElementById('sessionCourse').value = COURSES[0].id;
+  document.getElementById('sessionTopic').value = '';
 }
 
 function populateCourseSelects() {
@@ -464,6 +479,7 @@ function bindScanFlow() {
   document.getElementById('copySessionUrl').addEventListener('click', copySessionUrl);
   document.getElementById('closeSessionBtn').addEventListener('click', closeActiveSession);
   document.getElementById('rotateQrBtn').addEventListener('click', rotateSessionQr);
+  document.getElementById('finalizeSessionBtn').addEventListener('click', finalizeActiveSession);
   document.getElementById('testScanBtn').addEventListener('click', () => {
     const session = state.sessions.find(item => item.id === activeSessionId);
     if (session) {
@@ -483,7 +499,24 @@ function openQrModal(sessionId) {
   document.getElementById('qrLocation').textContent = session.location;
   document.getElementById('qrWindow').textContent = `${formatTime(session.startAt)} – ${formatTime(session.endAt)} · ${session.radius} m radius`;
   document.getElementById('qrToken').textContent = `${session.token.slice(0, 8)}…${session.token.slice(-6)}`;
-  document.getElementById('liveCount').textContent = String(checkinsFor(session.id).length);
+  document.getElementById('qrTopic').textContent = session.topic || 'Regular lecture';
+  document.getElementById('qrStatusLabel').textContent = session.status === 'finalized' ? 'ATTENDANCE FINALIZED' : session.status === 'closed' ? 'SESSION CLOSED' : 'CHECK-IN OPEN';
+  const approved = STUDENTS.filter(student => student.courseIds.includes(session.courseId)).length;
+  const present = checkinsFor(session.id).length;
+  document.getElementById('approvedCount').textContent = String(approved);
+  document.getElementById('liveCount').textContent = String(present);
+  document.getElementById('qrProgressText').textContent = `${approved ? Math.round((present / approved) * 100) : 0}% attendance progress`;
+  document.getElementById('qrProgressBar').style.width = `${approved ? Math.min(100, (present / approved) * 100) : 0}%`;
+  document.getElementById('finalizeSessionBtn').disabled = session.status === 'finalized';
+  document.getElementById('finalizeSessionBtn').textContent = session.status === 'finalized' ? 'Finalized' : 'Finalize';
+  clearInterval(qrCountdownTimer);
+  let secondsLeft = session.qrIssuedAt ? Math.max(0, QR_ROTATION_SECONDS - Math.floor((Date.now() - Date.parse(session.qrIssuedAt)) / 1000)) : QR_ROTATION_SECONDS;
+  document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
+  qrCountdownTimer = setInterval(() => {
+    secondsLeft -= 1;
+    if (secondsLeft <= 0) { rotateSessionQr(true); return; }
+    document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
+  }, 1000);
   document.getElementById('closeSessionBtn').disabled = session.status === 'closed';
   document.getElementById('closeSessionBtn').textContent = session.status === 'closed' ? 'Session closed' : 'Close session';
   document.getElementById('qrCode').replaceChildren();
@@ -531,13 +564,25 @@ function closeActiveSession() {
   showToast('Session closed. New check-ins are disabled.');
 }
 
-function rotateSessionQr() {
+function finalizeActiveSession() {
+  const session = state.sessions.find(item => item.id === activeSessionId);
+  if (!session || session.status === 'finalized') return;
+  session.status = 'finalized';
+  session.closedAt = new Date().toISOString();
+  persist();
+  openQrModal(session.id);
+  renderAll();
+  showToast('Attendance finalized. The register is now read-only.');
+}
+
+function rotateSessionQr(autoRotate = false) {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'closed') {
     showToast('A closed session cannot receive a new QR code.', 'error');
     return;
   }
   session.token = randomId() + randomId();
+  session.qrIssuedAt = new Date().toISOString();
   persist();
   openQrModal(session.id);
   showToast('QR code regenerated. The previous link no longer works in this browser demo.');
@@ -633,7 +678,8 @@ async function checkIn(useDemoLocation) {
 
 function validateSessionBeforeLocation(session) {
   if (!session) return 'This QR code is invalid or does not belong to a session in this browser.';
-  if (session.status === 'closed') return 'This class session has been closed. Ask your lecturer if you think this is a mistake.';
+  if (session.status === 'closed' || session.status === 'finalized') return 'This attendance session is no longer accepting check-ins.';
+  if (session.qrIssuedAt && Date.now() - Date.parse(session.qrIssuedAt) > QR_ROTATION_SECONDS * 1000) return 'This QR code has expired. Scan the latest code displayed by your lecturer.';
   const now = Date.now();
   if (now < Date.parse(session.startAt) || now > Date.parse(session.endAt)) return 'This check-in is outside the session time window.';
   return '';
