@@ -25,7 +25,9 @@
     sessionStorage.removeItem(TOKEN_CACHE_KEY);
   }
 
-  const isHeld = session => ['closed', 'finalized'].includes(session.status) || Date.parse(session.ends_at) <= Date.now();
+  // A class counts toward attendance only once it has started and is over (closed early or past its end).
+  const isHeld = session => Date.parse(session.starts_at) <= Date.now()
+    && (['closed', 'finalized'].includes(session.status) || Date.parse(session.ends_at) <= Date.now());
 
   async function rows(query) {
     const { data, error } = await query;
@@ -56,6 +58,8 @@
 
     const userById = new Map(users.map(user => [user.id, user]));
     const sessionsByCourse = new Map();
+    const heldSessionIds = new Set(sessions.filter(isHeld).map(session => session.id));
+    const heldAttendance = attendance.filter(record => heldSessionIds.has(record.session_id) && record.status !== 'absent');
     sessions.forEach(session => {
       if (session.course_id && isHeld(session)) {
         sessionsByCourse.set(session.course_id, (sessionsByCourse.get(session.course_id) || 0) + 1);
@@ -85,14 +89,14 @@
     const students = [...studentMap.values()];
     students.forEach(student => {
       student.held = student.courseIds.reduce((sum, courseId) => sum + (sessionsByCourse.get(courseId) || 0), 0);
-      student.attended = attendance.filter(record => record.student_id === student.id && record.status !== 'absent').length;
+      student.attended = heldAttendance.filter(record => record.student_id === student.id).length;
       student.rate = rate(student.attended, student.held);
     });
 
     const mappedCourses = courses.map((course, index) => {
       const enrolled = students.filter(student => student.courseIds.includes(course.id));
       const held = sessionsByCourse.get(course.id) || 0;
-      const attended = attendance.filter(record => record.course_id === course.id && record.status !== 'absent').length;
+      const attended = heldAttendance.filter(record => record.course_id === course.id).length;
       return {
         id: course.id,
         code: course.course_code,

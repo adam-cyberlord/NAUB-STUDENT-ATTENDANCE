@@ -976,13 +976,19 @@ function openContactModal(contactId) {
   openModal('contactModal');
 }
 
+function isHeldSession(session) {
+  return Date.parse(session.startAt) <= Date.now()
+    && (['closed', 'finalized'].includes(session.status) || Date.parse(session.endAt) <= Date.now());
+}
+
 function renderStudentDashboard(account) {
   const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
   const courses = student.courseIds.map(courseId => courseById(courseId)).filter(Boolean);
   const live = Boolean(account.production);
   if (live) courses.forEach(course => {
-    const held = state.sessions.filter(session => session.courseId === course.id && (['closed', 'finalized'].includes(session.status) || Date.parse(session.endAt) <= Date.now())).length;
-    const present = state.attendance.filter(record => record.courseId === course.id && record.studentId === student.id && record.status !== 'ABSENT').length;
+    const heldIds = new Set(state.sessions.filter(session => session.courseId === course.id && isHeldSession(session)).map(session => session.id));
+    const held = heldIds.size;
+    const present = state.attendance.filter(record => heldIds.has(record.sessionId) && record.studentId === student.id && record.status !== 'ABSENT').length;
     course.held = held;
     course.present = present;
     course.studentRate = held ? Math.round((present / held) * 100) : 100;
