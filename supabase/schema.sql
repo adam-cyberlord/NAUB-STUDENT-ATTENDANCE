@@ -817,6 +817,86 @@ grant execute on function public.update_class_session(uuid, timestamptz, timesta
 grant execute on function public.close_class_session(uuid) to authenticated;
 grant execute on function public.mark_attendance(text, uuid, double precision, double precision, double precision) to authenticated;
 
+-- Device approval and recovery workflow. Credentials remain server-side; only metadata is exposed.
+alter table public.devices add column if not exists label text not null default 'Registered device';
+alter table public.devices add column if not exists device_type text not null default 'browser';
+alter table public.devices add column if not exists browser_info text;
+alter table public.devices add column if not exists last_seen_at timestamptz not null default now();
+alter table public.devices add column if not exists revoked_at timestamptz;
+
+create table if not exists public.device_change_requests (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  student_id uuid not null references public.users(id) on delete cascade,
+  previous_device_id uuid references public.devices(id) on delete set null,
+  requested_label text not null check (length(requested_label) between 2 and 80),
+  requested_type text not null,
+  reason text not null,
+  notes text,
+  status text not null default 'pending' check (status in ('pending','under_review','approved','rejected','cancelled')),
+  verification_status text not null default 'required' check (verification_status in ('required','pending','verified','failed')),
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  decision_reason text,
+  created_at timestamptz not null default now(),
+  foreign key (student_id, university_id) references public.users(id, university_id) on delete cascade
+);
+create index if not exists device_change_requests_scope on public.device_change_requests (university_id, status, created_at desc);
+alter table public.device_change_requests enable row level security;
+create policy if not exists "students view own device requests" on public.device_change_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+create policy if not exists "students create own device requests" on public.device_change_requests for insert to authenticated with check (student_id = auth.uid());
+create policy if not exists "authorized staff review device requests" on public.device_change_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid())) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+grant select, insert, update on public.device_change_requests to authenticated;
+
+-- Stage 2 approval workflow tables. Apply as a versioned migration in Supabase before enabling production writes.
+create table if not exists public.invitations (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  email text not null,
+  role text not null check (role in ('lecturer', 'student')),
+  token_hash bytea not null unique,
+  expires_at timestamptz not null,
+  used_at timestamptz,
+  invited_by uuid not null references public.users(id) on delete restrict,
+  metadata jsonb not null default '{}'::jsonb,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.registration_applications (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null references public.users(id) on delete cascade,
+  university_id uuid not null references public.universities(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected', 'needs_correction')),
+  reference_number text not null unique,
+  rejection_reason text,
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now()
+);
+create table if not exists public.course_enrolment_requests (
+  id uuid primary key default gen_random_uuid(),
+  university_id uuid not null references public.universities(id) on delete cascade,
+  course_id uuid not null references public.courses(id) on delete cascade,
+  student_id uuid not null references public.users(id) on delete cascade,
+  status text not null default 'pending' check (status in ('pending', 'approved', 'rejected')),
+  rejection_reason text,
+  reviewed_by uuid references public.users(id) on delete set null,
+  reviewed_at timestamptz,
+  created_at timestamptz not null default now(),
+  unique (course_id, student_id)
+);
+
+alter table public.invitations enable row level security;
+alter table public.registration_applications enable row level security;
+alter table public.course_enrolment_requests enable row level security;
+create index if not exists invitation_expiry_idx on public.invitations (expires_at) where used_at is null;
+create index if not exists enrolment_request_student_idx on public.course_enrolment_requests (student_id, status);
+
+create policy "admins manage invitations" on public.invitations for all to authenticated using (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin')) with check (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "students read own applications" on public.registration_applications for select to authenticated using (user_id = auth.uid() or public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "admins review applications" on public.registration_applications for update to authenticated using (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin')) with check (public.has_role(university_id, 'university_admin') or public.has_role(null, 'super_admin'));
+create policy "participants read enrolment requests" on public.course_enrolment_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid()));
+create policy "authorized reviewers update enrolments" on public.course_enrolment_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid() and public.has_role(university_id, 'lecturer'))) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c where c.id = course_id and c.lecturer_id = auth.uid() and public.has_role(university_id, 'lecturer')));
+
 -- No client-side INSERT/UPDATE/DELETE policy exists for attendance or sessions.
 -- Use these authenticated RPCs so authorization, token creation, audit, and
 -- one-check-in-per-session enforcement execute atomically on the server.
