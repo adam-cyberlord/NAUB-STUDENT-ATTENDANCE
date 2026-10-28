@@ -21,3 +21,8 @@ begin
   return new;
 end;
 $$;
+
+-- users/sessions use column-level SELECT grants; columns added by later migrations
+-- were never granted, so the UI could not read them.
+grant select (account_status) on public.users to authenticated;
+grant select (schedule_id) on public.sessions to authenticated;
