@@ -1163,8 +1163,8 @@ function bindAdminBookingFilters() {
 
 function renderPendingAccounts() {
   const pending = state.pendingAccounts || [];
-  const rows = pending.map(user => `<tr><td>${escapeHtml(user.name || '')}</td><td>${escapeHtml(user.matric || user.staffId || '')}</td><td>${escapeHtml(user.email || '')}</td><td><button class="button button-small button-primary" type="button" data-account-status="active" data-account-id="${escapeHtml(user.id)}">Approve</button> <button class="button button-small danger-outline" type="button" data-account-status="deactivated" data-account-id="${escapeHtml(user.id)}">Reject</button></td></tr>`).join('');
-  return `<section class="panel"><div class="panel-heading"><div><h2>Pending account approvals</h2><p>New registrations cannot sign in until approved.</p></div></div><div class="table-scroll"><table><thead><tr><th>NAME</th><th>MATRIC / STAFF ID</th><th>EMAIL</th><th>ACTION</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No accounts are waiting for approval.</td></tr>'}</tbody></table></div></section>`;
+  const rows = pending.map(user => `<tr><td>${escapeHtml(user.name || '')}</td><td>${escapeHtml(user.matric || user.staffId || '')}</td><td>${escapeHtml(user.department || '')}</td><td><button class="button button-small button-primary" type="button" data-account-status="active" data-account-id="${escapeHtml(user.id)}">Approve</button> <button class="button button-small danger-outline" type="button" data-account-status="deactivated" data-account-id="${escapeHtml(user.id)}">Reject</button></td></tr>`).join('');
+  return `<section class="panel"><div class="panel-heading"><div><h2>Pending account approvals</h2><p>New registrations cannot sign in until approved.</p></div></div><div class="table-scroll"><table><thead><tr><th>NAME</th><th>MATRIC / STAFF ID</th><th>DEPARTMENT</th><th>ACTION</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No accounts are waiting for approval.</td></tr>'}</tbody></table></div></section>`;
 }
 
 document.addEventListener('click', event => {

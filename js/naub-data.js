@@ -39,7 +39,7 @@
     const [courses, enrollments, users, sessions, attendance, schedules, venues, notifications, lecturerAttendance] = await Promise.all([
       rows(supabase.from('courses').select('id, course_code, title, department, semester, lecturer_id').order('course_code')),
       rows(supabase.from('enrollments').select('course_id, student_id, status').eq('status', 'active')),
-      rows(supabase.from('users').select('id, full_name, matric_number, staff_id, email, account_status, created_at')),
+      rows(supabase.from('users').select('id, full_name, matric_number, staff_id, department, account_status, created_at')),
       rows(supabase.from('sessions').select('id, course_id, created_by, starts_at, ends_at, location_name, latitude, longitude, radius_metres, status, closed_at, schedule_id').order('starts_at', { ascending: false }).limit(500)),
       rows(supabase.from('attendance').select('id, session_id, course_id, student_id, status, checked_at, matric_number').limit(5000)),
       rows(supabase.from('class_schedules').select('id, course_id, lecturer_id, class_date, starts_at, ends_at, venue, venue_id, instructions, status, attendance_session_id, updated_at').order('starts_at')).catch(() => []),
@@ -159,7 +159,7 @@
         bufferMinutes: venue.buffer_minutes,
       })),
       pendingAccounts: users.filter(user => user.account_status === 'pending').map(user => ({
-        id: user.id, name: user.full_name, matric: user.matric_number, staffId: user.staff_id, email: user.email, createdAt: user.created_at,
+        id: user.id, name: user.full_name, matric: user.matric_number, staffId: user.staff_id, department: user.department, createdAt: user.created_at,
       })),
       notifications: notifications.map(item => ({ id: item.id, studentId: item.user_id, title: item.title, body: item.body, createdAt: item.created_at })),
       lecturerAttendance: lecturerAttendance.map(item => ({ id: item.id, lecturerId: item.lecturer_id, scheduleId: item.schedule_id, status: item.status, checkedInAt: item.checked_in_at })),
