@@ -1,0 +1,7 @@
+[functions.student-login]
+verify_jwt = false
+entrypoint = "./functions/student-login/index.ts"
+
+[functions.student-register]
+verify_jwt = false
+entrypoint = "./functions/student-register/index.ts"

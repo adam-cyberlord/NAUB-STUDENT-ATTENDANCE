@@ -1,0 +1,13 @@
+{
+  "projectId": "72460929",
+  "functions": {
+    "student-login": {
+      "hasChanged": false,
+      "hash": "17869f4ff0356c3aded10d8dc18d20cbbad0c5a9a98e182475b67848e52170b4"
+    },
+    "student-register": {
+      "hasChanged": false,
+      "hash": "3b2452a3faf74f94474730bdaea7a617f96dfd0e631b11b6d4bd7c7301b9033a"
+    }
+  }
+}
