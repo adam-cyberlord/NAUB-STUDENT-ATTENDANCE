@@ -1800,6 +1800,13 @@ const CHECK_IN_REASONS = {
   not_enrolled: 'You are not enrolled in this course. Contact your department if your enrolment is incorrect.',
   already_checked_in: 'You have already checked in for this class session.',
   device_not_approved: 'This device is not approved for your account. Your university must approve it before you can check in.',
+  outside_radius: 'You appear to be outside the classroom check-in radius. Move closer and retry.',
+  gps_accuracy_unacceptable: 'Your GPS accuracy is too low. Move near a window or outdoors and retry.',
+  student_role_required: 'Only student accounts can check in to a class session.',
+  device_not_registered: 'This device is not approved for your account. Your university must approve it before you can check in.',
+  pending: 'This is a new device for your account. Your university must approve it before you can check in from it.',
+  revoked: 'This device has been revoked for your account. Contact your university to approve a new device.',
+  device_in_use: 'This device is already registered to another student account.',
 };
 
 async function checkInRemote(token) {
@@ -1815,7 +1822,10 @@ async function checkInRemote(token) {
       : 'We could not read your location. Check that GPS is turned on and retry.');
   }
   try {
-    const result = await window.NaubData.markAttendance(token, deviceIdFor(currentDemoAccount.userId), position);
+    const deviceId = deviceIdFor(currentDemoAccount.userId);
+    const device = await window.NaubData.registerDevice(deviceId);
+    if (!device?.ok) return failScan(CHECK_IN_REASONS[device?.status || device?.reason] || CHECK_IN_REASONS.device_not_approved);
+    const result = await window.NaubData.markAttendance(token, deviceId, position);
     if (!result?.ok) return failScan(CHECK_IN_REASONS[result?.reason] || 'Check-in was not accepted by the server.');
     await refreshRemoteData();
     const student = STUDENTS.find(item => item.id === currentDemoAccount.userId) || { name: currentDemoAccount.name, matric: currentDemoAccount.matricNumber || '' };
