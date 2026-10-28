@@ -183,7 +183,7 @@ async function refreshRemoteData() {
       STUDENTS.splice(0, STUDENTS.length, ...data.students);
       state = {
         sessions: data.sessions, attendance: data.attendance, schedules: data.schedules, scheduleHistory: [],
-        notifications: data.notifications, venues: data.venues, venueHistory: [], lecturerAttendance: data.lecturerAttendance, messages: [],
+        notifications: data.notifications, pendingAccounts: data.pendingAccounts, venues: data.venues, venueHistory: [], lecturerAttendance: data.lecturerAttendance, messages: [],
       };
       renderAll();
       renderLecturerSchedules();
@@ -976,26 +976,40 @@ function openContactModal(contactId) {
 
 function renderStudentDashboard(account) {
   const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
-  const courses = student.courseIds.map(courseId => courseById(courseId));
-  const attendanceHistory = [
+  const courses = student.courseIds.map(courseId => courseById(courseId)).filter(Boolean);
+  const live = Boolean(account.production);
+  if (live) courses.forEach(course => {
+    const held = state.sessions.filter(session => session.courseId === course.id && Date.parse(session.startAt) <= Date.now()).length;
+    const present = state.attendance.filter(record => record.courseId === course.id && record.studentId === student.id && record.status !== 'ABSENT').length;
+    course.held = held;
+    course.present = present;
+    course.studentRate = held ? Math.round((present / held) * 100) : 100;
+  });
+  const attendanceHistory = live ? [] : [
     { course: courses[0], daysAgo: 1, status: 'Present' },
     { course: courses[1], daysAgo: 3, status: 'Present' },
     { course: courses[0], daysAgo: 5, status: 'Present' },
   ];
+  if (live) courses.forEach(course => { course.rate = course.studentRate; });
   const courseCards = courses.map(course => `
     <article class="student-course-card">
       <div class="student-course-heading"><span class="course-monogram ${escapeHtml(course.tint)}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</span><div><strong>${escapeHtml(course.code)}</strong><small>${escapeHtml(course.name)}</small></div></div>
       <div class="student-course-rate"><strong>${course.rate}%</strong><span>attendance</span></div>
       <div class="progress-track"><div class="progress-fill ${course.rate < THRESHOLD ? 'warn' : ''}" style="width:${course.rate}%"></div></div>
-      <small class="student-course-foot">Sample semester attendance rate${course.rate < THRESHOLD ? ' · Below 75% threshold' : ''}</small>
+      <small class="student-course-foot">${live ? 'Semester attendance rate' : 'Sample semester attendance rate'}${course.rate < THRESHOLD ? ' · Below 75% threshold' : ''}</small>
     </article>`).join('');
   const attendanceRows = courses.map(course => {
-    const total = 12;
-    const present = Math.round(total * course.rate / 100);
+    const total = live ? course.held : 12;
+    const present = live ? course.present : Math.round(total * course.rate / 100);
     const absent = total - present;
     return `<tr><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td><span class="attendance-meter"><i class="${course.rate < THRESHOLD ? 'low' : ''}" style="width:${course.rate}%"></i></span>${course.rate}%</td><td><div class="attendance-breakdown"><span class="present">${present} present</span><span class="absent">${absent} absent</span></div></td><td><span class="table-status ${course.rate < THRESHOLD ? 'at-risk' : ''}">${course.rate < THRESHOLD ? 'Below threshold' : 'On track'}</span></td></tr>`;
   }).join('');
-  const historyRows = attendanceHistory.map(item => {
+  const historyRows = live
+    ? state.attendance.filter(record => record.studentId === student.id).sort((a, b) => String(b.checkedAt).localeCompare(String(a.checkedAt))).slice(0, 10).map(record => {
+      const course = courseById(record.courseId);
+      return `<tr><td>${escapeHtml(course ? `${course.code} · ${course.name}` : 'Course')}</td><td>${escapeHtml(new Date(record.checkedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${escapeHtml(record.status[0] + record.status.slice(1).toLowerCase())}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="3">No attendance recorded yet.</td></tr>'
+    : attendanceHistory.map(item => {
     const date = new Date();
     date.setDate(date.getDate() - item.daysAgo);
     return `<tr><td>${escapeHtml(item.course.code)} · ${escapeHtml(item.course.name)}</td><td>${escapeHtml(date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${item.status}</span></td></tr>`;
@@ -1003,11 +1017,11 @@ function renderStudentDashboard(account) {
   const nextSession = [...state.sessions].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)).find(session => Date.parse(session.endAt) > Date.now());
 
   return `
-    <div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>
+    ${live ? '' : '<div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>'}
     <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT WORKSPACE</p><h1 id="roleDashboardTitle">Welcome, ${escapeHtml(account.name.split(' ')[0])}</h1><p class="subheading">Your classes and attendance at a glance.</p></div><span class="tracking-id-chip">Matric no. · ${escapeHtml(account.matricNumber)}</span></div>
     <div class="stat-grid role-stat-grid" aria-label="Student attendance summary">
-      <article class="stat-card"><div class="stat-top"><span class="stat-label">Semester attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${student.rate}<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">Above 75%</span> eligibility threshold</div></article>
-      <article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${student.attended}<span class="value-percent"> / 12</span></div><div class="stat-foot">Sample semester sessions</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Semester attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${student.rate}<span class="value-percent">%</span></div><div class="stat-foot">${student.rate >= THRESHOLD ? '<span class="trend-up">Above 75%</span>' : '<span class="trend-down">Below 75%</span>'} eligibility threshold</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${student.attended}<span class="value-percent"> / ${live ? student.held : 12}</span></div><div class="stat-foot">${live ? 'Sessions held so far' : 'Sample semester sessions'}</div></article>
       <article class="stat-card"><div class="stat-top"><span class="stat-label">Enrolled courses</span><span class="stat-icon icon-lilac">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${courses.length}</div><div class="stat-foot">For 2025/2026 · First Semester</div></article>
     </div>
     <div class="section-heading role-section-heading"><div><h2>My course attendance</h2><p>Keep track of your semester progress.</p></div></div>
@@ -1017,7 +1031,7 @@ function renderStudentDashboard(account) {
     <section class="panel"><div class="panel-heading"><div><h2>Attendance by course</h2><p>Present and absent sessions for every enrolled course</p></div></div><div class="table-scroll"><table class="student-attendance-table"><thead><tr><th>COURSE</th><th>PERCENTAGE</th><th>SESSIONS</th><th>STATUS</th></tr></thead><tbody>${attendanceRows}</tbody></table></div></section>
     ${renderContactPanel('student')}
     <div class="dashboard-bottom role-dashboard-bottom">
-      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>Example history for the student demo account</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
+      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>${live ? 'Your latest check-ins' : 'Example history for the student demo account'}</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
       <section class="panel next-class-panel"><div class="panel-heading"><div><h2>Next class</h2><p>Your upcoming session</p></div><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div>${nextSession ? `<div class="next-class-course">${escapeHtml(courseById(nextSession.courseId).code)} · ${escapeHtml(courseById(nextSession.courseId).name)}</div><p>${escapeHtml(nextSession.location)}</p><p>${escapeHtml(formatDate(nextSession.date))} · ${escapeHtml(formatTime(nextSession.startAt))}</p>` : '<p>No upcoming sample classes are scheduled.</p>'}<p class="field-hint">Scan your lecturer’s session QR code to check in. This preview does not submit attendance.</p></section>
     </div>`;
 }
@@ -1033,7 +1047,7 @@ function renderStudentSchedules(student) {
 
 function renderScheduleNotifications(account) {
   const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
-  const notifications = state.notifications.filter(item => item.studentId === student.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const notifications = state.notifications.filter(item => item.studentId === (account.production ? account.userId : student.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return notifications.length ? notifications.slice(0, 8).map(item => `<article class="schedule-notification"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></article>`).join('') : '<p class="field-hint">Schedule changes will appear here.</p>';
 }
 
@@ -1147,6 +1161,21 @@ function bindAdminBookingFilters() {
   });
 }
 
+function renderPendingAccounts() {
+  const pending = state.pendingAccounts || [];
+  const rows = pending.map(user => `<tr><td>${escapeHtml(user.name || '')}</td><td>${escapeHtml(user.matric || user.staffId || '')}</td><td>${escapeHtml(user.email || '')}</td><td><button class="button button-small button-primary" type="button" data-account-status="active" data-account-id="${escapeHtml(user.id)}">Approve</button> <button class="button button-small danger-outline" type="button" data-account-status="deactivated" data-account-id="${escapeHtml(user.id)}">Reject</button></td></tr>`).join('');
+  return `<section class="panel"><div class="panel-heading"><div><h2>Pending account approvals</h2><p>New registrations cannot sign in until approved.</p></div></div><div class="table-scroll"><table><thead><tr><th>NAME</th><th>MATRIC / STAFF ID</th><th>EMAIL</th><th>ACTION</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No accounts are waiting for approval.</td></tr>'}</tbody></table></div></section>`;
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-account-status]');
+  if (!button || !isProduction()) return;
+  const approve = button.dataset.accountStatus === 'active';
+  if (!window.confirm(approve ? 'Approve this account?' : 'Reject this account?')) return;
+  button.disabled = true;
+  runRemote(() => window.NaubData.setAccountStatus(button.dataset.accountId, button.dataset.accountStatus), approve ? 'Account approved.' : 'Account rejected.');
+});
+
 function renderAdminDashboard(account) {
   const sessions = [...state.sessions].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt)).slice(0, 4);
   const sessionRows = sessions.map(session => {
@@ -1163,6 +1192,7 @@ function renderAdminDashboard(account) {
       <article class="stat-card"><div class="stat-top"><span class="stat-label">At-risk students</span><span class="stat-icon icon-orange">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${STUDENTS.filter(student => student.rate < THRESHOLD).length}</div><div class="stat-foot">Below the sample 75% threshold</div></article>
     </div>
     <section class="panel admin-session-panel"><div class="panel-heading"><div><h2>Recent class sessions</h2><p>Sample sessions across the university workspace</p></div><button class="text-button" type="button" data-admin-view="sessions">Open session list ${svgIcon('arrow-right')}</button></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>CHECK-INS</th><th>STATUS</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="4">No sample sessions are available.</td></tr>'}</tbody></table></div></section>
+    ${account.production ? renderPendingAccounts() : ''}
     ${renderVenueManagement()}
     ${renderVenueBookings()}
     ${renderContactPanel('admin')}
