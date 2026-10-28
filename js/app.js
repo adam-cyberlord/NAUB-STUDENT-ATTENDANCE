@@ -41,6 +41,8 @@ const STUDENTS = [
 ];
 
 let state;
+let supabaseClientPromise = null;
+let isAuthenticated = false;
 let activeSessionId = null;
 let editingSessionId = null;
 let sessionFilter = 'all';
@@ -129,6 +131,7 @@ async function getSupabase() {
 }
 
 async function ensureStudentAuthentication() {
+  if (!window.NaubAuth?.enabled()) return;
   try {
     const supabase = await getSupabase();
     const { data } = await supabase.auth.getSession();
@@ -136,7 +139,7 @@ async function ensureStudentAuthentication() {
   } catch (error) {
     console.error('Unable to initialize student authentication:', error);
   }
-  if (!isAuthenticated) openStudentPortal();
+  if (!isAuthenticated && !currentDemoAccount) openStudentPortal();
 }
 
 function matricEmail(matric) {
