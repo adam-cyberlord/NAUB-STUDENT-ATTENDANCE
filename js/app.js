@@ -25,6 +25,17 @@ const DEFAULT_VENUES = [
   { id: 'venue-cs-lab', name: 'Computer Science Lab', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Main Campus', building: 'Computing Building', floor: 'First floor', type: 'Laboratory', capacity: 60, status: 'available', bufferMinutes: 0 },
   { id: 'venue-hall-b', name: 'Lecture Hall B', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Biu Campus', building: 'Main Lecture Block', floor: 'First floor', type: 'Lecture Hall', capacity: 100, status: 'available', bufferMinutes: 0 },
 ];
+const LECTURERS = [
+  { id: 'l1', name: 'Dr. Amina Yusuf', staffId: 'NAUB-CS-014', email: 'amina.yusuf@naub.edu.ng', department: 'Computer Science', courseIds: ['csc301', 'csc305'], status: 'active', approval: 'approved' },
+  { id: 'l2', name: 'Dr. Musa Bello', staffId: 'NAUB-CS-027', email: 'musa.bello@naub.edu.ng', department: 'Computer Science', courseIds: ['csc311'], status: 'pending', approval: 'pending' },
+  { id: 'l3', name: 'Engr. N. Ibrahim', staffId: 'NAUB-EEE-008', email: 'n.ibrahim@naub.edu.ng', department: 'Electrical Engineering', courseIds: [], status: 'suspended', approval: 'approved' },
+];
+const ENROLMENT_REQUESTS = [
+  { id: 'en1', studentId: 'u3', courseId: 'csc301', status: 'pending', reason: '' },
+  { id: 'en2', studentId: 'u5', courseId: 'csc305', status: 'pending', reason: '' },
+  { id: 'en3', studentId: 'u7', courseId: 'gst201', status: 'rejected', reason: 'Please confirm your department details.' },
+];
+
 const STUDENTS = [
   { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11 },
   { id: 'u2', name: 'Ibrahim Musa', matric: '190401018', courseIds: ['csc301', 'csc311'], rate: 84, attended: 10 },
@@ -51,6 +62,8 @@ let toastTimer;
 const adminBookingFilters = { date: '', venueId: '', faculty: '', lecturer: '' };
 const AUTH_SESSION_KEY = 'naub-attendance-auth-v1';
 const PENDING_SCAN_KEY = 'naub-pending-scan-token';
+const QR_ROTATION_SECONDS = 30;
+let qrCountdownTimer = null;
 
 document.addEventListener('DOMContentLoaded', init);
 
@@ -1279,7 +1292,7 @@ function updateDeviceRequest(id, status) {
 
 function bindRoleSwitcher() {
   const roleSelect = document.getElementById('roleSelect');
-  roleSelect.addEventListener('change', () => {
+  roleSelect?.addEventListener('change', () => {
     const role = roleSelect.value;
     document.body.dataset.role = role;
     const labels = { lecturer: 'Lecturer workspace', admin: 'Admin workspace', student: 'Student workspace' };
