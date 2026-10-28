@@ -32,6 +32,7 @@
   }
 
   window.NaubAuth = {
+    client: getClient,
     enabled: () => Boolean(window.supabase?.createClient),
     signInStudent: async (matricNumber, password) => {
       const client = await getClient();

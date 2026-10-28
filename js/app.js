@@ -168,7 +168,51 @@ function loadState() {
   }
 }
 
+function isProduction() {
+  return Boolean(currentDemoAccount?.production && window.NaubData);
+}
+
+let remoteLoad = null;
+async function refreshRemoteData() {
+  if (!isProduction()) return;
+  if (remoteLoad) return remoteLoad;
+  remoteLoad = (async () => {
+    try {
+      const data = await window.NaubData.load(currentDemoAccount);
+      COURSES.splice(0, COURSES.length, ...data.courses);
+      STUDENTS.splice(0, STUDENTS.length, ...data.students);
+      state = {
+        sessions: data.sessions, attendance: data.attendance, schedules: data.schedules, scheduleHistory: [],
+        notifications: data.notifications, pendingAccounts: data.pendingAccounts, venues: data.venues, venueHistory: [], lecturerAttendance: data.lecturerAttendance, messages: [],
+      };
+      renderAll();
+      renderLecturerSchedules();
+      if (currentDemoAccount && currentDemoAccount.role !== 'lecturer') renderRoleDashboard(currentDemoAccount);
+    } catch (error) {
+      console.error('Unable to load attendance data from Supabase:', error);
+      showToast('Could not load the latest data from the server.', 'error');
+    } finally {
+      remoteLoad = null;
+    }
+  })();
+  return remoteLoad;
+}
+
+async function runRemote(action, successMessage) {
+  try {
+    const result = await action();
+    await refreshRemoteData();
+    if (successMessage) showToast(successMessage);
+    return result;
+  } catch (error) {
+    console.error('Server request failed:', error);
+    showToast(error.message || 'The server rejected this request.', 'error');
+    return undefined;
+  }
+}
+
 function persist() {
+  if (isProduction()) return;
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
   } catch (error) {
@@ -447,6 +491,13 @@ function bindScheduleManagement() {
     if (venueHasConflict(venue.id, schedule.date, schedule.startTime, schedule.endTime, editingScheduleId)) {
       return scheduleError('That venue is already booked during this time. Choose another venue or time.');
     }
+    if (isProduction()) {
+      const scheduleId = editingScheduleId;
+      runRemote(() => (scheduleId ? window.NaubData.updateSchedule(scheduleId, schedule) : window.NaubData.publishSchedule(schedule)),
+        scheduleId ? 'Class schedule updated and published.' : 'Class schedule published.')
+        .then(result => { if (result !== undefined) { closeModal('scheduleModal'); editingScheduleId = null; } });
+      return;
+    }
     const existingIndex = state.schedules.findIndex(item => item.id === schedule.id);
     if (existingIndex >= 0) {
       const previous = state.schedules[existingIndex];
@@ -469,7 +520,7 @@ function bindScheduleManagement() {
     closeModal('scheduleModal'); editingScheduleId = null;
   });
   window.addEventListener('storage', event => {
-    if (event.key === STORAGE_KEY) {
+    if (event.key === STORAGE_KEY && !isProduction()) {
       state = loadState();
       renderAll();
       renderLecturerSchedules();
@@ -477,6 +528,8 @@ function bindScheduleManagement() {
     }
   });
   window.setInterval(() => {
+    if (isProduction()) { refreshRemoteData(); return; }
+    if (currentDemoAccount?.production) return;
     const latest = loadState();
     if (JSON.stringify(latest) !== JSON.stringify(state)) { state = latest; renderAll(); renderLecturerSchedules(); if (currentDemoAccount) renderRoleDashboard(currentDemoAccount); }
   }, 30000);
@@ -567,6 +620,7 @@ async function checkInLecturerSchedule(scheduleId) {
         return;
       }
       showToast(`Lecturer check-in recorded as ${result.status}.`);
+      await refreshRemoteData();
     } catch (error) {
       console.error('Lecturer check-in failed:', error);
       showToast('Lecturer check-in could not be completed.', 'error');
@@ -591,6 +645,7 @@ async function checkInLecturerSchedule(scheduleId) {
 function cancelSchedule(scheduleId) {
   const schedule = state.schedules.find(item => item.id === scheduleId);
   if (!schedule || schedule.status === 'cancelled' || !window.confirm('Cancel this class? Enrolled students will be notified.')) return;
+  if (isProduction()) { runRemote(() => window.NaubData.cancelSchedule(scheduleId), 'Class cancelled and students notified.'); return; }
   const previous = { ...schedule }; schedule.status = 'cancelled'; schedule.updatedAt = new Date().toISOString();
   state.sessions.filter(session => session.scheduleId === scheduleId && session.status === 'open').forEach(session => {
     session.status = 'closed';
@@ -602,6 +657,16 @@ function cancelSchedule(scheduleId) {
 function startScheduledAttendance(scheduleId) {
   const schedule = state.schedules.find(item => item.id === scheduleId);
   if (!schedule || schedule.status === 'cancelled') { showToast('Cancelled classes cannot start attendance.', 'error'); return; }
+  if (isProduction()) {
+    if (!navigator.geolocation) { showToast('Location is required to set the classroom check-in area.', 'error'); return; }
+    showToast('Getting your location to set the classroom check-in area…');
+    getCurrentPosition().catch(() => null).then(position => {
+      if (!position) { showToast('Allow location access so students can be checked against this classroom.', 'error'); return undefined; }
+      return runRemote(() => window.NaubData.startScheduledAttendance(scheduleId, position), 'Attendance session started for this scheduled class.');
+    })
+      .then(sessionId => { if (sessionId) { navigateTo('sessions'); openQrModal(sessionId); } });
+    return;
+  }
   const start = new Date(scheduleDateTime(schedule, schedule.startTime));
   const end = new Date(scheduleDateTime(schedule, schedule.endTime));
   const session = { id: randomId(), scheduleId, courseId: schedule.courseId, date: schedule.date, startAt: start.toISOString(), endAt: end.toISOString(), location: schedule.venue, latitude: 10.61, longitude: 12.19, radius: 50, token: randomId() + randomId(), status: 'open', demo: true };
@@ -835,6 +900,11 @@ function enterDemoDashboard(account, persistSession = true) {
   } else {
     renderRoleDashboard(account);
   }
+  if (account.production) {
+    showToast(`Signed in as ${account.name}.`);
+    refreshRemoteData().then(() => { if (account.role === 'student') resumePendingScan(); });
+    return;
+  }
   showToast(`${account.role[0].toUpperCase()}${account.role.slice(1)} demo dashboard opened.`);
   if (account.role === 'student') resumePendingScan();
 }
@@ -906,26 +976,40 @@ function openContactModal(contactId) {
 
 function renderStudentDashboard(account) {
   const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
-  const courses = student.courseIds.map(courseId => courseById(courseId));
-  const attendanceHistory = [
+  const courses = student.courseIds.map(courseId => courseById(courseId)).filter(Boolean);
+  const live = Boolean(account.production);
+  if (live) courses.forEach(course => {
+    const held = state.sessions.filter(session => session.courseId === course.id && Date.parse(session.startAt) <= Date.now()).length;
+    const present = state.attendance.filter(record => record.courseId === course.id && record.studentId === student.id && record.status !== 'ABSENT').length;
+    course.held = held;
+    course.present = present;
+    course.studentRate = held ? Math.round((present / held) * 100) : 100;
+  });
+  const attendanceHistory = live ? [] : [
     { course: courses[0], daysAgo: 1, status: 'Present' },
     { course: courses[1], daysAgo: 3, status: 'Present' },
     { course: courses[0], daysAgo: 5, status: 'Present' },
   ];
+  if (live) courses.forEach(course => { course.rate = course.studentRate; });
   const courseCards = courses.map(course => `
     <article class="student-course-card">
       <div class="student-course-heading"><span class="course-monogram ${escapeHtml(course.tint)}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</span><div><strong>${escapeHtml(course.code)}</strong><small>${escapeHtml(course.name)}</small></div></div>
       <div class="student-course-rate"><strong>${course.rate}%</strong><span>attendance</span></div>
       <div class="progress-track"><div class="progress-fill ${course.rate < THRESHOLD ? 'warn' : ''}" style="width:${course.rate}%"></div></div>
-      <small class="student-course-foot">Sample semester attendance rate${course.rate < THRESHOLD ? ' · Below 75% threshold' : ''}</small>
+      <small class="student-course-foot">${live ? 'Semester attendance rate' : 'Sample semester attendance rate'}${course.rate < THRESHOLD ? ' · Below 75% threshold' : ''}</small>
     </article>`).join('');
   const attendanceRows = courses.map(course => {
-    const total = 12;
-    const present = Math.round(total * course.rate / 100);
+    const total = live ? course.held : 12;
+    const present = live ? course.present : Math.round(total * course.rate / 100);
     const absent = total - present;
     return `<tr><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td><span class="attendance-meter"><i class="${course.rate < THRESHOLD ? 'low' : ''}" style="width:${course.rate}%"></i></span>${course.rate}%</td><td><div class="attendance-breakdown"><span class="present">${present} present</span><span class="absent">${absent} absent</span></div></td><td><span class="table-status ${course.rate < THRESHOLD ? 'at-risk' : ''}">${course.rate < THRESHOLD ? 'Below threshold' : 'On track'}</span></td></tr>`;
   }).join('');
-  const historyRows = attendanceHistory.map(item => {
+  const historyRows = live
+    ? state.attendance.filter(record => record.studentId === student.id).sort((a, b) => String(b.checkedAt).localeCompare(String(a.checkedAt))).slice(0, 10).map(record => {
+      const course = courseById(record.courseId);
+      return `<tr><td>${escapeHtml(course ? `${course.code} · ${course.name}` : 'Course')}</td><td>${escapeHtml(new Date(record.checkedAt).toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${escapeHtml(record.status[0] + record.status.slice(1).toLowerCase())}</span></td></tr>`;
+    }).join('') || '<tr><td colspan="3">No attendance recorded yet.</td></tr>'
+    : attendanceHistory.map(item => {
     const date = new Date();
     date.setDate(date.getDate() - item.daysAgo);
     return `<tr><td>${escapeHtml(item.course.code)} · ${escapeHtml(item.course.name)}</td><td>${escapeHtml(date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${item.status}</span></td></tr>`;
@@ -933,11 +1017,11 @@ function renderStudentDashboard(account) {
   const nextSession = [...state.sessions].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)).find(session => Date.parse(session.endAt) > Date.now());
 
   return `
-    <div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>
+    ${live ? '' : '<div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>'}
     <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT WORKSPACE</p><h1 id="roleDashboardTitle">Welcome, ${escapeHtml(account.name.split(' ')[0])}</h1><p class="subheading">Your classes and attendance at a glance.</p></div><span class="tracking-id-chip">Matric no. · ${escapeHtml(account.matricNumber)}</span></div>
     <div class="stat-grid role-stat-grid" aria-label="Student attendance summary">
-      <article class="stat-card"><div class="stat-top"><span class="stat-label">Semester attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${student.rate}<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">Above 75%</span> eligibility threshold</div></article>
-      <article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${student.attended}<span class="value-percent"> / 12</span></div><div class="stat-foot">Sample semester sessions</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Semester attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${student.rate}<span class="value-percent">%</span></div><div class="stat-foot">${student.rate >= THRESHOLD ? '<span class="trend-up">Above 75%</span>' : '<span class="trend-down">Below 75%</span>'} eligibility threshold</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${student.attended}<span class="value-percent"> / ${live ? student.held : 12}</span></div><div class="stat-foot">${live ? 'Sessions held so far' : 'Sample semester sessions'}</div></article>
       <article class="stat-card"><div class="stat-top"><span class="stat-label">Enrolled courses</span><span class="stat-icon icon-lilac">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${courses.length}</div><div class="stat-foot">For 2025/2026 · First Semester</div></article>
     </div>
     <div class="section-heading role-section-heading"><div><h2>My course attendance</h2><p>Keep track of your semester progress.</p></div></div>
@@ -947,7 +1031,7 @@ function renderStudentDashboard(account) {
     <section class="panel"><div class="panel-heading"><div><h2>Attendance by course</h2><p>Present and absent sessions for every enrolled course</p></div></div><div class="table-scroll"><table class="student-attendance-table"><thead><tr><th>COURSE</th><th>PERCENTAGE</th><th>SESSIONS</th><th>STATUS</th></tr></thead><tbody>${attendanceRows}</tbody></table></div></section>
     ${renderContactPanel('student')}
     <div class="dashboard-bottom role-dashboard-bottom">
-      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>Example history for the student demo account</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
+      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>${live ? 'Your latest check-ins' : 'Example history for the student demo account'}</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
       <section class="panel next-class-panel"><div class="panel-heading"><div><h2>Next class</h2><p>Your upcoming session</p></div><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div>${nextSession ? `<div class="next-class-course">${escapeHtml(courseById(nextSession.courseId).code)} · ${escapeHtml(courseById(nextSession.courseId).name)}</div><p>${escapeHtml(nextSession.location)}</p><p>${escapeHtml(formatDate(nextSession.date))} · ${escapeHtml(formatTime(nextSession.startAt))}</p>` : '<p>No upcoming sample classes are scheduled.</p>'}<p class="field-hint">Scan your lecturer’s session QR code to check in. This preview does not submit attendance.</p></section>
     </div>`;
 }
@@ -963,7 +1047,7 @@ function renderStudentSchedules(student) {
 
 function renderScheduleNotifications(account) {
   const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
-  const notifications = state.notifications.filter(item => item.studentId === student.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  const notifications = state.notifications.filter(item => item.studentId === (account.production ? account.userId : student.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
   return notifications.length ? notifications.slice(0, 8).map(item => `<article class="schedule-notification"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></article>`).join('') : '<p class="field-hint">Schedule changes will appear here.</p>';
 }
 
@@ -991,6 +1075,12 @@ function bindVenueManagement() {
       const error = document.getElementById('venueError');
       error.textContent = 'A venue with this name already exists in the same building and campus.';
       error.classList.remove('hidden');
+      return;
+    }
+    if (isProduction()) {
+      const venueId = editingVenueId;
+      runRemote(() => window.NaubData.saveVenue(venueId, venue), venueId ? 'Venue details updated.' : 'Venue added.')
+        .then(result => { if (result !== undefined) { closeModal('venueModal'); editingVenueId = null; } });
       return;
     }
     const index = state.venues.findIndex(item => item.id === venue.id);
@@ -1071,6 +1161,21 @@ function bindAdminBookingFilters() {
   });
 }
 
+function renderPendingAccounts() {
+  const pending = state.pendingAccounts || [];
+  const rows = pending.map(user => `<tr><td>${escapeHtml(user.name || '')}</td><td>${escapeHtml(user.matric || user.staffId || '')}</td><td>${escapeHtml(user.department || '')}</td><td><button class="button button-small button-primary" type="button" data-account-status="active" data-account-id="${escapeHtml(user.id)}">Approve</button> <button class="button button-small danger-outline" type="button" data-account-status="deactivated" data-account-id="${escapeHtml(user.id)}">Reject</button></td></tr>`).join('');
+  return `<section class="panel"><div class="panel-heading"><div><h2>Pending account approvals</h2><p>New registrations cannot sign in until approved.</p></div></div><div class="table-scroll"><table><thead><tr><th>NAME</th><th>MATRIC / STAFF ID</th><th>DEPARTMENT</th><th>ACTION</th></tr></thead><tbody>${rows || '<tr><td colspan="4">No accounts are waiting for approval.</td></tr>'}</tbody></table></div></section>`;
+}
+
+document.addEventListener('click', event => {
+  const button = event.target.closest('[data-account-status]');
+  if (!button || !isProduction()) return;
+  const approve = button.dataset.accountStatus === 'active';
+  if (!window.confirm(approve ? 'Approve this account?' : 'Reject this account?')) return;
+  button.disabled = true;
+  runRemote(() => window.NaubData.setAccountStatus(button.dataset.accountId, button.dataset.accountStatus), approve ? 'Account approved.' : 'Account rejected.');
+});
+
 function renderAdminDashboard(account) {
   const sessions = [...state.sessions].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt)).slice(0, 4);
   const sessionRows = sessions.map(session => {
@@ -1087,6 +1192,7 @@ function renderAdminDashboard(account) {
       <article class="stat-card"><div class="stat-top"><span class="stat-label">At-risk students</span><span class="stat-icon icon-orange">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${STUDENTS.filter(student => student.rate < THRESHOLD).length}</div><div class="stat-foot">Below the sample 75% threshold</div></article>
     </div>
     <section class="panel admin-session-panel"><div class="panel-heading"><div><h2>Recent class sessions</h2><p>Sample sessions across the university workspace</p></div><button class="text-button" type="button" data-admin-view="sessions">Open session list ${svgIcon('arrow-right')}</button></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>CHECK-INS</th><th>STATUS</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="4">No sample sessions are available.</td></tr>'}</tbody></table></div></section>
+    ${account.production ? renderPendingAccounts() : ''}
     ${renderVenueManagement()}
     ${renderVenueBookings()}
     ${renderContactPanel('admin')}
@@ -1221,6 +1327,14 @@ function bindSessionForm() {
     if (!locationName) return formError(error, 'Add a classroom or venue name.');
     const overlap = state.sessions.some(item => item.id !== editingSessionId && item.courseId === document.getElementById('sessionCourse').value && item.date === date && item.status !== 'finalized' && startAt < new Date(item.endAt) && endAt > new Date(item.startAt));
     if (overlap) return formError(error, 'This course already has an overlapping attendance session.');
+    if (isProduction()) {
+      const sessionId = editingSessionId;
+      const details = { courseId: course.id, startAt: startAt.toISOString(), endAt: endAt.toISOString(), location: locationName, latitude, longitude, radius };
+      runRemote(() => (sessionId ? window.NaubData.updateSession(sessionId, details).then(() => sessionId) : window.NaubData.createSession(details)),
+        sessionId ? 'Session updated.' : 'Class session created. Share the QR code with your students.')
+        .then(id => { if (id) { closeModal('sessionModal'); editingSessionId = null; openQrModal(id); } });
+      return;
+    }
     let session;
     if (editingSessionId) {
       session = state.sessions.find(item => item.id === editingSessionId);
@@ -1340,6 +1454,11 @@ function openQrModal(sessionId) {
   const session = state.sessions.find(item => item.id === sessionId);
   if (!session) return;
   activeSessionId = session.id;
+  if (isProduction() && !session.token) {
+    if (session.status === 'open') rotateSessionQr();
+    else showToast('This session is closed; its QR code is no longer available.', 'error');
+    return;
+  }
   const course = courseById(session.courseId);
   document.getElementById('qrTitle').textContent = `${course.code} session QR`;
   document.getElementById('qrCourseName').textContent = `${course.code} · ${course.name}`;
@@ -1459,6 +1578,10 @@ function closeActiveSession() {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'closed') return;
   if (!window.confirm('Close this class session now? New check-ins will no longer be accepted.')) return;
+  if (isProduction()) {
+    runRemote(() => window.NaubData.closeSession(session.id), 'Session closed. New check-ins are disabled.').then(() => closeModal('qrModal'));
+    return;
+  }
   session.status = 'closed';
   session.closedAt = new Date().toISOString();
   persist();
@@ -1482,6 +1605,18 @@ function rotateSessionQr(autoRotate = false) {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'closed') {
     showToast('A closed session cannot receive a new QR code.', 'error');
+    return;
+  }
+  if (isProduction()) {
+    window.NaubData.rotateQr(session.id).then(token => {
+      session.token = token;
+      session.qrIssuedAt = new Date().toISOString();
+      openQrModal(session.id);
+      if (!autoRotate) showToast('QR code regenerated. The previous link no longer works.');
+    }).catch(error => {
+      console.error('QR rotation failed:', error);
+      showToast(error.message || 'Could not issue a new QR code.', 'error');
+    });
     return;
   }
   session.token = randomId() + randomId();
@@ -1524,6 +1659,19 @@ function openScanModal(session, token) {
   document.getElementById('locationStatus').innerHTML = `${svgIcon('location', 'location-pin')}<div><strong>Location permission needed</strong><small>We’ll check your GPS accuracy before submitting.</small></div>`;
   document.getElementById('demoLocationBtn').dataset.token = sessionToken || '';
   document.getElementById('checkInBtn').dataset.token = sessionToken || '';
+  if (isProduction()) {
+    const course = session ? courseById(session.courseId) : null;
+    document.getElementById('scanCourse').textContent = course ? `${course.code} · ${course.name}` : 'Class attendance check-in';
+    document.getElementById('scanLocation').textContent = session?.location || 'Your location is verified by the server against the classroom.';
+    document.getElementById('scanTime').textContent = session ? `Closes ${formatTime(session.endAt)} · ${session.radius} m check-in radius` : 'The server checks the session time window, enrolment and device.';
+    document.getElementById('scanStudent').innerHTML = `<option value="${escapeHtml(currentDemoAccount.userId)}">${escapeHtml(currentDemoAccount.name)} · ${escapeHtml(currentDemoAccount.matricNumber || '')}</option>`;
+    document.getElementById('scanStudent').disabled = true;
+    document.getElementById('checkInBtn').disabled = currentDemoAccount.role !== 'student';
+    document.getElementById('demoLocationBtn').disabled = true;
+    document.getElementById('demoLocationBtn').classList.add('hidden');
+    openModal('scanModal');
+    return;
+  }
   if (!session) {
     document.getElementById('scanCourse').textContent = 'Unknown or expired check-in link';
     document.getElementById('scanLocation').textContent = 'This QR code is not available in this browser demo.';
@@ -1548,6 +1696,7 @@ async function checkIn(useDemoLocation) {
   const error = document.getElementById('scanError');
   error.classList.add('hidden');
 
+  if (isProduction()) return checkInRemote(token);
   const session = state.sessions.find(item => item.token === token);
   const validityMessage = validateSessionBeforeLocation(session);
   if (validityMessage) return failScan(validityMessage);
@@ -1599,6 +1748,43 @@ async function checkIn(useDemoLocation) {
   showScanResult(true, useDemoLocation
     ? 'Present — your attendance and both timestamps have been recorded successfully. This demo used a simulated classroom location; it is not an official attendance record.'
     : 'Present — your attendance and both timestamps have been recorded successfully.', student);
+}
+
+const CHECK_IN_REASONS = {
+  authentication_required: 'Sign in with your student account, then scan again.',
+  rate_limited: 'Too many check-in attempts. Wait a few minutes, then try again.',
+  invalid_token: 'This QR code is invalid or has expired. Scan the latest code displayed by your lecturer.',
+  session_closed: 'This attendance session is no longer accepting check-ins.',
+  outside_time_window: 'This check-in is outside the session time window.',
+  poor_gps_accuracy: 'Your GPS accuracy is too low. Move near a window or outdoors and retry.',
+  outside_geofence: 'You appear to be outside the classroom check-in radius. Move closer and retry.',
+  not_enrolled: 'You are not enrolled in this course. Contact your department if your enrolment is incorrect.',
+  already_checked_in: 'You have already checked in for this class session.',
+  device_not_approved: 'This device is not approved for your account. Your university must approve it before you can check in.',
+};
+
+async function checkInRemote(token) {
+  if (!token) return failScan('This check-in link is missing its QR token. Scan the code again.');
+  if (!navigator.geolocation) return failScan('Location is not available on this browser. Enable GPS or try another device.');
+  setLocationStatus('Getting your location…', 'Please allow location access in your browser.', false);
+  let position;
+  try {
+    position = await getCurrentPosition();
+  } catch (geoError) {
+    return failScan(geoError.code === 1
+      ? 'Location permission was denied. Allow location access in your browser, then try again.'
+      : 'We could not read your location. Check that GPS is turned on and retry.');
+  }
+  try {
+    const result = await window.NaubData.markAttendance(token, deviceIdFor(currentDemoAccount.userId), position);
+    if (!result?.ok) return failScan(CHECK_IN_REASONS[result?.reason] || 'Check-in was not accepted by the server.');
+    await refreshRemoteData();
+    const student = STUDENTS.find(item => item.id === currentDemoAccount.userId) || { name: currentDemoAccount.name, matric: currentDemoAccount.matricNumber || '' };
+    showScanResult(true, `${String(result.status || 'present').replace(/^./, c => c.toUpperCase())} — your attendance has been recorded by the server.`, student);
+  } catch (error) {
+    console.error('Check-in request failed:', error);
+    failScan('Check-in could not reach the server. Check your connection and retry.');
+  }
 }
 
 function validateSessionBeforeLocation(session) {
