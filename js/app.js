@@ -658,7 +658,12 @@ function startScheduledAttendance(scheduleId) {
   const schedule = state.schedules.find(item => item.id === scheduleId);
   if (!schedule || schedule.status === 'cancelled') { showToast('Cancelled classes cannot start attendance.', 'error'); return; }
   if (isProduction()) {
-    runRemote(() => window.NaubData.startScheduledAttendance(scheduleId), 'Attendance session started for this scheduled class.')
+    if (!navigator.geolocation) { showToast('Location is required to set the classroom check-in area.', 'error'); return; }
+    showToast('Getting your location to set the classroom check-in area…');
+    getCurrentPosition().catch(() => null).then(position => {
+      if (!position) { showToast('Allow location access so students can be checked against this classroom.', 'error'); return undefined; }
+      return runRemote(() => window.NaubData.startScheduledAttendance(scheduleId, position), 'Attendance session started for this scheduled class.');
+    })
       .then(sessionId => { if (sessionId) { navigateTo('sessions'); openQrModal(sessionId); } });
     return;
   }

@@ -224,8 +224,13 @@
       p_instructions: details.instructions || '',
     }),
     cancelSchedule: scheduleId => rpc('cancel_class_schedule', { p_schedule_id: scheduleId }),
-    async startScheduledAttendance(scheduleId) {
-      const row = firstRow(await rpc('start_scheduled_attendance', { p_schedule_id: scheduleId }));
+    async startScheduledAttendance(scheduleId, position) {
+      const row = firstRow(await rpc('start_scheduled_attendance', {
+        p_schedule_id: scheduleId,
+        p_latitude: position.latitude,
+        p_longitude: position.longitude,
+        p_radius_metres: 50,
+      }));
       rememberToken(row?.session_id, row?.qr_token);
       return row?.session_id;
     },
