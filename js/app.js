@@ -1823,8 +1823,6 @@ async function checkInRemote(token) {
   }
   try {
     const deviceId = deviceIdFor(currentDemoAccount.userId);
-    const device = await window.NaubData.registerDevice(deviceId);
-    if (!device?.ok) return failScan(CHECK_IN_REASONS[device?.status || device?.reason] || CHECK_IN_REASONS.device_not_approved);
     const result = await window.NaubData.markAttendance(token, deviceId, position);
     if (!result?.ok) return failScan(CHECK_IN_REASONS[result?.reason] || 'Check-in was not accepted by the server.');
     await refreshRemoteData();
