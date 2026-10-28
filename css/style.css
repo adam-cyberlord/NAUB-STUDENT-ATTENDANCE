@@ -552,6 +552,15 @@ html[data-theme="dark"] .student-auth-brand { background: #1f251c; }
   .campus-photos { display: none; }
 }
 @media (max-width: 600px) {
+  html {
+    background-image: linear-gradient(rgba(239, 238, 225, .84), rgba(239, 238, 225, .9)), url("../IMAGES/leftside logo.png"), url("../IMAGES/background.jpeg");
+    background-position: center, center 48%, center;
+    background-size: cover, 230px auto, cover;
+    background-repeat: no-repeat;
+  }
+  html[data-theme="dark"] {
+    background-image: linear-gradient(rgba(20, 28, 17, .88), rgba(20, 28, 17, .93)), url("../IMAGES/leftside logo.png"), url("../IMAGES/background.jpeg");
+  }
   body { padding-bottom: calc(62px + env(safe-area-inset-bottom)); }
   .mobile-bottom-nav { position: fixed; right: 0; bottom: 0; left: 0; z-index: 18; min-height: 62px; display: grid; grid-template-columns: repeat(4, 1fr); padding: 5px 6px env(safe-area-inset-bottom); border-top: 1px solid var(--line); background: color-mix(in srgb, var(--surface), transparent 3%); box-shadow: 0 -8px 24px rgba(44, 54, 35, .1); backdrop-filter: blur(18px); }
   .bottom-nav-item { min-height: 52px; padding: 4px 2px; flex-direction: column; justify-content: center; gap: 3px; border-radius: 8px; font-size: 9px; text-align: center; }
