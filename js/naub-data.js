@@ -215,6 +215,7 @@
     },
     setAccountStatus: (userId, status) => rpc('admin_set_account_status', { p_user_id: userId, p_status: status, p_reason: null }),
     closeSession: sessionId => rpc('close_class_session', { p_session_id: sessionId }),
+    registerDevice: deviceId => rpc('register_device', { p_device_identifier: deviceId }),
     markAttendance: (token, deviceId, position) => rpc('mark_attendance', {
       p_qr_token: token,
       p_device_identifier: deviceId,

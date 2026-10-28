@@ -65,7 +65,8 @@ Deno.serve(async request => {
     const { data: authUser, error: authError } = await admin.auth.admin.createUser({
       email,
       password,
-      email_confirm: false,
+      // Admin approval (account_status) gates sign-in, so no separate email confirmation step.
+      email_confirm: true,
       user_metadata: { full_name: fullName, matric_number: matricNumber },
     });
     if (authError || !authUser.user) {
