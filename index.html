@@ -3,112 +3,195 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#f4f6f0">
-  <meta name="description" content="NAUB Student Attendance helps university lecturers and students manage class attendance.">
-  <title>NAUB Student Attendance</title>
+  <meta name="theme-color" content="#e7e4d7">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="Nigerian Army University Biu Attendance">
+  <meta name="description" content="Nigerian Army University Biu attendance helps lecturers and students manage class attendance.">
+  <title>Nigerian Army University Biu Attendance</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="IMAGES/app-icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="IMAGES/app-icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=naub-student-portal-1">
+  <link rel="stylesheet" href="css/style.css?v=naub-2026-10-28">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="js/supabase-config.js"></script>
+  <script src="js/supabase-auth.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="js/app.js?v=naub-student-portal-1" defer></script>
+  <script src="js/app.js?v=naub-2026-10-28" defer></script>
 </head>
-<body>
+<body class="auth-required">
+  <svg class="icon-sprite" aria-hidden="true">
+    <symbol id="icon-home" viewBox="0 0 24 24"><path d="m3 10 9-7 9 7v10a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></symbol>
+    <symbol id="icon-grid" viewBox="0 0 24 24"><rect x="4" y="4" width="6" height="6" rx="1"/><rect x="14" y="4" width="6" height="6" rx="1"/><rect x="4" y="14" width="6" height="6" rx="1"/><rect x="14" y="14" width="6" height="6" rx="1"/></symbol>
+    <symbol id="icon-users" viewBox="0 0 24 24"><circle cx="9" cy="8" r="3"/><path d="M3 19c.5-3 2.5-5 6-5s5.5 2 6 5"/><path d="M16 5.5a3 3 0 0 1 0 5.8M18 14c1.8.6 2.8 2.2 3 4"/></symbol>
+    <symbol id="icon-report" viewBox="0 0 24 24"><path d="M5 4h14v16H5z"/><path d="M8 16v-4M12 16V8M16 16v-6"/></symbol>
+    <symbol id="icon-help" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9a2.5 2.5 0 1 1 4.1 1.9c-1 .8-1.6 1.2-1.6 2.6M12 17h.01"/></symbol>
+    <symbol id="icon-arrow-up-right" viewBox="0 0 24 24"><path d="M7 17 17 7M8 7h9v9"/></symbol>
+    <symbol id="icon-more" viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></symbol>
+    <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></symbol>
+    <symbol id="icon-theme" viewBox="0 0 24 24"><path d="M20 15.5A8 8 0 0 1 8.5 4 8.5 8.5 0 1 0 20 15.5z"/></symbol>
+    <symbol id="icon-user" viewBox="0 0 24 24"><circle cx="12" cy="8" r="3"/><path d="M5 20c.7-3.3 3-5 7-5s6.3 1.7 7 5"/></symbol>
+    <symbol id="icon-download" viewBox="0 0 24 24"><path d="M12 4v11M8 11l4 4 4-4M5 20h14"/></symbol>
+    <symbol id="icon-arrow-right" viewBox="0 0 24 24"><path d="M4 12h15M13 6l6 6-6 6"/></symbol>
+    <symbol id="icon-info" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 10v6M12 7h.01"/></symbol>
+    <symbol id="icon-location" viewBox="0 0 24 24"><path d="M19 10c0 5-7 10-7 10S5 15 5 10a7 7 0 1 1 14 0Z"/><circle cx="12" cy="10" r="2.2"/></symbol>
+    <symbol id="icon-check" viewBox="0 0 24 24"><path d="m5 12 4 4L19 6"/></symbol>
+    <symbol id="icon-plus" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></symbol>
+    <symbol id="icon-star" viewBox="0 0 24 24"><path d="m12 3 2.3 5.8 6.2.5-4.7 4 1.5 6-5.3-3.2-5.3 3.2 1.5-6-4.7-4 6.2-.5z"/></symbol>
+    <symbol id="icon-close" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="icon-heart" viewBox="0 0 24 24"><path d="M20.8 8.8c0 5.2-8.8 10.2-8.8 10.2S3.2 14 3.2 8.8A4.8 4.8 0 0 1 12 6.1a4.8 4.8 0 0 1 8.8 2.7Z"/></symbol>
+    <symbol id="icon-print" viewBox="0 0 24 24"><path d="M7 9V4h10v5M7 17H5a2 2 0 0 1-2-2v-4a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v4a2 2 0 0 1-2 2h-2"/><path d="M7 14h10v6H7zM17 12h.01"/></symbol>
+    <symbol id="icon-phone" viewBox="0 0 24 24"><path d="M6.6 3.5 9 3l2 5-2.2 1.8a15 15 0 0 0 5.4 5.4L16 13l5 2 .5 2.4a2 2 0 0 1-2.2 2.5C10.8 19 5 13.2 4.1 4.7A2 2 0 0 1 6.6 3.5Z"/></symbol>
+    <symbol id="icon-message" viewBox="0 0 24 24"><path d="M4 5.5A2.5 2.5 0 0 1 6.5 3h11A2.5 2.5 0 0 1 20 5.5v7a2.5 2.5 0 0 1-2.5 2.5H11l-4.5 4v-4h0A2.5 2.5 0 0 1 4 12.5v-7Z"/><path d="M8 8h8M8 11h5"/></symbol>
+  </svg>
   <aside class="sidebar" id="sidebar">
-    <a class="brand" href="#" aria-label="NAUB Student Attendance home">
-      <span class="brand-emblem-frame"><img class="brand-logo" src="IMAGES/logo.png" alt="Nigerian Army University Biu seal"></span>
-      <span class="brand-name"><strong>NAUB</strong><small>STUDENT ATTENDANCE</small><span class="brand-rule"><i></i> BIU <i></i></span></span>
+    <a class="brand" href="#" aria-label="Nigerian Army University Biu Student Attendance home">
+      <span class="brand-emblem-frame"><img class="brand-logo" src="IMAGES/logo.png" alt="Nigerian Army University seal"></span>
+      <span class="brand-name"><strong>NIGERIAN ARMY UNIVERSITY BIU</strong><small>STUDENT ATTENDANCE</small></span>
     </a>
     <div class="workspace-label">LECTURER WORKSPACE</div>
     <nav class="nav-menu" aria-label="Main navigation">
-      <button class="nav-item active" data-page="dashboard"><span class="nav-icon">⌂</span>Overview</button>
-      <button class="nav-item" data-page="sessions"><span class="nav-icon">▦</span>Class sessions</button>
-      <button class="nav-item" data-page="students"><span class="nav-icon">♧</span>My students</button>
-      <button class="nav-item" data-page="reports"><span class="nav-icon">▤</span>Reports</button>
+      <button class="nav-item active" data-page="dashboard"><svg class="nav-icon"><use href="#icon-home"/></svg>Overview</button>
+      <button class="nav-item" data-page="sessions"><svg class="nav-icon"><use href="#icon-grid"/></svg>Class sessions</button>
+      <button class="nav-item" data-page="students"><svg class="nav-icon"><use href="#icon-users"/></svg>My students</button>
+      <button class="nav-item" data-page="reports"><svg class="nav-icon"><use href="#icon-report"/></svg>Reports</button>
     </nav>
     <div class="sidebar-bottom">
       <div class="help-card">
-        <div class="help-icon">✳</div>
+        <div class="help-icon"><svg class="ui-icon"><use href="#icon-help"/></svg></div>
         <strong>Need a hand?</strong>
         <p>We're here to help you get started.</p>
-        <a href="mailto:support@example.org">Contact support <span>↗</span></a>
+        <a href="mailto:attendance.admin@naub.edu.ng">Contact attendance support <svg class="inline-icon"><use href="#icon-arrow-up-right"/></svg></a>
+        <button class="install-app-button hidden" id="installAppBtn" data-install-app type="button">Install mobile app</button>
       </div>
       <button class="profile-button" id="profileButton" aria-label="Signed in as Dr. Amina Yusuf">
         <span class="avatar">AY</span>
-        <span class="profile-copy"><strong>Dr. Amina Yusuf</strong><small>Lecturer · NAUB</small></span>
-        <span class="more">···</span>
+        <span class="profile-copy"><strong>Dr. Amina Yusuf</strong><small>Lecturer · Nigerian Army University Biu</small></span>
+        <span class="more"><svg class="ui-icon"><use href="#icon-more"/></svg></span>
       </button>
     </div>
   </aside>
+  <button class="sidebar-backdrop" id="sidebarBackdrop" type="button" aria-label="Close navigation"></button>
+  <nav class="mobile-bottom-nav" aria-label="Mobile navigation">
+    <button class="nav-item bottom-nav-item active" data-page="dashboard" type="button"><svg class="nav-icon"><use href="#icon-home"/></svg><span>Overview</span></button>
+    <button class="nav-item bottom-nav-item" data-page="sessions" type="button"><svg class="nav-icon"><use href="#icon-grid"/></svg><span>Sessions</span></button>
+    <button class="nav-item bottom-nav-item" data-page="students" type="button"><svg class="nav-icon"><use href="#icon-users"/></svg><span>Students</span></button>
+    <button class="nav-item bottom-nav-item" data-page="reports" type="button"><svg class="nav-icon"><use href="#icon-report"/></svg><span>Reports</span></button>
+  </nav>
 
   <main class="main-content">
     <header class="topbar">
-      <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation">☰</button>
+      <button class="mobile-menu" id="mobileMenu" aria-label="Open navigation"><svg class="ui-icon"><use href="#icon-menu"/></svg></button>
+      <a class="mobile-topbar-logo" href="#" aria-label="Nigerian Army University Biu Student Attendance home">
+        <img src="IMAGES/logo.png" alt="NAUB logo">
+      </a>
       <div class="breadcrumb"><span>Lecturer workspace</span><span class="crumb-divider">/</span><strong id="pageCrumb">Overview</strong></div>
       <div class="topbar-actions">
-        <span class="partner-emblem-frame"><img class="partner-logo" src="IMAGES/leftside logo.png" alt="Nigerian Army insignia"></span>
-        <button class="button button-student" id="studentPortalBtn"><span class="student-portal-icon">♙</span><span>Student portal</span></button>
+        <button class="button button-student" id="studentPortalBtn"><svg class="student-portal-icon"><use href="#icon-user"/></svg><span id="portalButtonLabel">Student portal</span></button>
         <label class="term-select"><span class="sr-only">Academic session</span><select id="termSelect"><option>2025/2026 · First Semester</option><option>2025/2026 · Second Semester</option></select></label>
-        <button class="icon-button" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode">◐</button>
+        <button class="icon-button" id="themeToggle" aria-label="Toggle dark mode" title="Toggle dark mode"><svg class="ui-icon"><use href="#icon-theme"/></svg></button>
         <button class="top-avatar" aria-label="Account menu">AY</button>
       </div>
+      <button class="mobile-install-app-button hidden" type="button" data-install-app aria-label="Install NAUB Attendance app"><svg class="ui-icon"><use href="#icon-download"/></svg></button>
+      <span class="partner-emblem-frame topbar-partner-logo"><img class="partner-logo" src="IMAGES/leftside logo.png" alt="Nigerian Army insignia"></span>
     </header>
 
     <div class="content">
-      <div class="demo-banner" role="note"><span class="demo-dot"></span><span><strong>Interactive demo</strong> · Data is stored only in this browser. Attendance here is not an official university record.</span><button id="dismissBanner" aria-label="Dismiss demo notice">×</button></div>
+      <div class="demo-banner" role="note"><span class="demo-dot"></span><span><strong>Interactive demo</strong> · Data is stored only in this browser. Attendance here is not an official university record.</span><button id="dismissBanner" aria-label="Dismiss demo notice"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
 
       <section class="page active" id="page-dashboard" aria-labelledby="welcomeTitle">
         <div class="welcome-row">
-          <div class="welcome-copy"><p class="eyebrow" id="todayLabel">MONDAY, 27 OCTOBER 2025</p><h1 id="welcomeTitle">Good morning, Amina <span>✦</span></h1><p class="subheading">Here’s what’s happening with your classes today.</p></div>
+          <div class="welcome-copy"><p class="eyebrow" id="todayLabel">MONDAY, 27 OCTOBER 2025</p><h1 id="welcomeTitle">Good morning, Amina <svg class="title-icon"><use href="#icon-star"/></svg></h1><p class="subheading">Here’s what’s happening with your classes today.</p></div>
           <div class="campus-photos" aria-label="NAUB campus photographs">
             <img src="IMAGES/background.jpeg" alt="Nigerian Army University Biu campus building">
             <img src="IMAGES/student-dashbord-background.jpeg" alt="Nigerian Army University Biu campus entrance">
           </div>
-          <button class="button button-primary" id="createSessionBtn"><span class="button-plus">＋</span> Create a session</button>
+          <button class="button button-primary" id="createSessionBtn"><svg class="button-plus"><use href="#icon-plus"/></svg> Create a session</button>
         </div>
 
         <div class="stat-grid" aria-label="Attendance summary">
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Total students</span><span class="stat-icon icon-lilac">♧</span></div><div class="stat-value" id="totalStudents">128</div><div class="stat-foot"><span class="trend-up">↑ 8</span> enrolled this semester</div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Sessions this week</span><span class="stat-icon icon-blue">▦</span></div><div class="stat-value" id="sessionsThisWeek">6</div><div class="stat-foot">Across <strong>4 courses</strong></div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Average attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value" id="averageAttendance">84<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">↑ 3.2%</span> from last month</div></article>
-          <article class="stat-card"><div class="stat-top"><span class="stat-label">Needs attention</span><span class="stat-icon icon-orange">♧</span></div><div class="stat-value" id="atRiskCount">7</div><div class="stat-foot"><span class="risk-copy">Below 75% attendance</span></div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Total students</span><span class="stat-icon icon-lilac"><svg class="ui-icon"><use href="#icon-users"/></svg></span></div><div class="stat-value" id="totalStudents">128</div><div class="stat-foot"><span class="trend-up">+ 8</span> enrolled this semester</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Sessions this week</span><span class="stat-icon icon-blue"><svg class="ui-icon"><use href="#icon-grid"/></svg></span></div><div class="stat-value" id="sessionsThisWeek">6</div><div class="stat-foot">Across <strong>4 courses</strong></div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Average attendance</span><span class="stat-icon icon-green"><svg class="ui-icon"><use href="#icon-check"/></svg></span></div><div class="stat-value" id="averageAttendance">84<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">+ 3.2%</span> from last month</div></article>
+          <article class="stat-card"><div class="stat-top"><span class="stat-label">Needs attention</span><span class="stat-icon icon-orange"><svg class="ui-icon"><use href="#icon-users"/></svg></span></div><div class="stat-value" id="atRiskCount">7</div><div class="stat-foot"><span class="risk-copy">Below 75% attendance</span></div></article>
         </div>
 
-        <div class="section-heading"><div><h2>Today’s classes</h2><p id="todayClassesSubline">Your sessions for today</p></div><button class="text-button" data-navigate="sessions">View timetable <span>→</span></button></div>
+        <div class="section-heading"><div><h2>Today’s classes</h2><p id="todayClassesSubline">Your sessions for today</p></div><button class="text-button" data-navigate="sessions">View timetable <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></div>
         <div class="class-list" id="todayClasses"></div>
+        <div id="lecturerScheduleManagement"></div>
+        <section class="panel contact-panel" id="lecturerContacts"></section>
 
         <div class="dashboard-bottom">
           <section class="panel attendance-panel">
             <div class="panel-heading"><div><h2>Attendance overview</h2><p>Average attendance across your courses</p></div><button class="select-button" id="chartPeriod">This semester <span>⌄</span></button></div>
-            <div class="chart-area"><div class="chart-y-labels"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div><div class="chart-wrap"><div class="chart-grid"><i></i><i></i><i></i><i></i><i></i></div><svg class="attendance-chart" viewBox="0 0 640 190" preserveAspectRatio="none" role="img" aria-label="Attendance trend rising from 72 percent to 84 percent"><defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#647d4e" stop-opacity=".18"/><stop offset="1" stop-color="#647d4e" stop-opacity="0"/></linearGradient></defs><path class="chart-fill" d="M0 125 C40 110 55 95 95 102 S150 130 190 96 S245 102 285 77 S340 89 380 69 S435 75 475 57 S535 67 570 43 S615 52 640 32 L640 190 L0 190 Z"/><path class="chart-line" d="M0 125 C40 110 55 95 95 102 S150 130 190 96 S245 102 285 77 S340 89 380 69 S435 75 475 57 S535 67 570 43 S615 52 640 32"/><circle cx="640" cy="32" r="5" class="chart-point"/></svg><div class="chart-x-labels"><span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span><span>Oct 6</span><span>Oct 13</span><span>Oct 20</span></div></div></div>
+            <div class="chart-area"><div class="chart-y-labels"><span>100%</span><span>75%</span><span>50%</span><span>25%</span><span>0%</span></div><div class="chart-wrap"><div class="chart-grid"><i></i><i></i><i></i><i></i><i></i></div><svg class="attendance-chart" viewBox="0 0 640 190" preserveAspectRatio="none" role="img" aria-label="Attendance trend rising from 72 percent to 84 percent"><defs><linearGradient id="chartFill" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#53663e" stop-opacity=".2"/><stop offset="1" stop-color="#53663e" stop-opacity="0"/></linearGradient></defs><path class="chart-fill" d="M0 125 C40 110 55 95 95 102 S150 130 190 96 S245 102 285 77 S340 89 380 69 S435 75 475 57 S535 67 570 43 S615 52 640 32 L640 190 L0 190 Z"/><path class="chart-line" d="M0 125 C40 110 55 95 95 102 S150 130 190 96 S245 102 285 77 S340 89 380 69 S435 75 475 57 S535 67 570 43 S615 52 640 32"/><circle cx="640" cy="32" r="5" class="chart-point"/></svg><div class="chart-x-labels"><span>Sep 1</span><span>Sep 8</span><span>Sep 15</span><span>Sep 22</span><span>Sep 29</span><span>Oct 6</span><span>Oct 13</span><span>Oct 20</span></div></div></div>
           </section>
-          <section class="panel courses-panel"><div class="panel-heading"><div><h2>Course attendance</h2><p>Student attendance rates by course</p></div><button class="dots-button" aria-label="Course options">···</button></div><div id="courseAttendanceList" class="course-attendance-list"></div><button class="panel-link" data-navigate="reports">View attendance report <span>→</span></button></section>
+          <section class="panel courses-panel"><div class="panel-heading"><div><h2>Course attendance</h2><p>Student attendance rates by course</p></div><button class="dots-button" aria-label="Course options"><svg class="ui-icon"><use href="#icon-more"/></svg></button></div><div id="courseAttendanceList" class="course-attendance-list"></div><button class="panel-link" data-navigate="reports">View attendance report <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></section>
         </div>
-        <footer class="footer-note"><span>© 2026 NAUB Student Attendance</span><span>Built for better learning, across Nigeria <b>♥</b></span><a href="#privacy">Privacy &amp; data</a></footer>
+        <footer class="footer-note"><span>© 2026 NAUB Student Attendance</span><span>Built for better learning, across Nigeria <svg class="inline-icon"><use href="#icon-heart"/></svg></span><a href="#privacy">Privacy &amp; data</a></footer>
+      </section>
+
+      <section class="page" id="page-role-dashboard" aria-labelledby="roleDashboardTitle">
+        <div id="roleDashboardContent"></div>
       </section>
 
       <section class="page" id="page-sessions" aria-labelledby="sessionsTitle">
-        <div class="welcome-row page-intro"><div><p class="eyebrow">YOUR TEACHING SCHEDULE</p><h1 id="sessionsTitle">Class sessions</h1><p class="subheading">Create a secure check-in for your next class.</p></div><button class="button button-primary" id="createSessionBtn2"><span class="button-plus">＋</span> Create a session</button></div>
+        <div class="welcome-row page-intro"><div><p class="eyebrow">YOUR TEACHING SCHEDULE</p><h1 id="sessionsTitle">Class sessions</h1><p class="subheading">Create a secure check-in for your next class.</p></div><button class="button button-primary" id="createSessionBtn2"><svg class="button-plus"><use href="#icon-plus"/></svg> Create a session</button></div>
         <div class="session-tabs"><button class="session-tab active" data-filter="all">All sessions</button><button class="session-tab" data-filter="open">Open now</button><button class="session-tab" data-filter="upcoming">Upcoming</button><button class="session-tab" data-filter="ended">Ended</button></div>
         <div id="sessionList" class="session-list"></div>
       </section>
 
       <section class="page" id="page-students" aria-labelledby="studentsTitle">
-        <div class="welcome-row page-intro"><div><p class="eyebrow">COURSE ROSTER</p><h1 id="studentsTitle">My students</h1><p class="subheading">Students enrolled in your courses this semester.</p></div><button class="button button-outline" id="exportStudents"><span>↓</span> Export CSV</button></div>
+        <div class="welcome-row page-intro"><div><p class="eyebrow">COURSE ROSTER</p><h1 id="studentsTitle">My students</h1><p class="subheading">Students enrolled in your courses this semester.</p></div><button class="button button-outline" id="exportStudents"><svg class="inline-icon"><use href="#icon-download"/></svg> Export CSV</button></div>
         <div class="panel roster-panel"><div class="roster-toolbar"><label class="search-input"><span>⌕</span><input id="studentSearch" type="search" placeholder="Search by name or matric number"></label><select id="rosterCourse" aria-label="Filter by course"><option value="">All courses</option></select><span id="rosterCount" class="muted-count"></span></div><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>ATTENDANCE</th><th>STATUS</th></tr></thead><tbody id="studentTableBody"></tbody></table></div></div>
       </section>
 
       <section class="page" id="page-reports" aria-labelledby="reportsTitle">
-        <div class="welcome-row page-intro"><div><p class="eyebrow">SEMESTER SUMMARY</p><h1 id="reportsTitle">Attendance reports</h1><p class="subheading">Track course participation and exam eligibility.</p></div><button class="button button-outline" id="exportReport"><span>↓</span> Export CSV</button></div>
-        <div class="report-callout"><span class="callout-icon">◎</span><div><strong>Exam eligibility threshold: 75%</strong><p>Students below the attendance threshold may not meet your course's attendance requirement.</p></div><span class="threshold-chip">Loading…</span></div>
+        <div class="welcome-row page-intro"><div><p class="eyebrow">SEMESTER SUMMARY</p><h1 id="reportsTitle">Attendance reports</h1><p class="subheading">Track course participation and exam eligibility.</p></div><button class="button button-outline" id="exportReport"><svg class="inline-icon"><use href="#icon-download"/></svg> Export CSV</button></div>
+        <div class="report-callout"><span class="callout-icon"><svg class="ui-icon"><use href="#icon-info"/></svg></span><div><strong>Exam eligibility threshold: 75%</strong><p>Students below the attendance threshold may not meet your course's attendance requirement.</p></div><span class="threshold-chip">Loading...</span></div>
         <div class="panel"><div class="panel-heading report-heading"><div><h2>Students below attendance threshold</h2><p>Based on recorded attendance for this semester</p></div><select id="reportCourse" aria-label="Filter report by course"><option value="">All courses</option></select></div><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>ATTENDANCE</th><th>SESSIONS ATTENDED</th></tr></thead><tbody id="reportTableBody"></tbody></table></div><div class="empty-message hidden" id="noAtRisk">No students are below the threshold for this course.</div></div>
       </section>
     </div>
   </main>
 
+  <div class="modal-backdrop hidden" id="scheduleModal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="scheduleModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">CLASS SCHEDULE MANAGEMENT</p><h2 id="scheduleModalTitle">Publish a class</h2><p>Students enrolled in the course will receive the update.</p></div><button class="close-button" data-close="scheduleModal" aria-label="Close schedule dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
+      <form id="scheduleForm">
+        <label class="field-label" for="scheduleCourse">Course</label><select id="scheduleCourse" required></select>
+        <label class="field-label" for="scheduleDate">Class date</label><input id="scheduleDate" type="date" required>
+        <div class="field-grid"><div><label class="field-label" for="scheduleStart">Start time</label><input id="scheduleStart" type="time" required></div><div><label class="field-label" for="scheduleEnd">End time</label><input id="scheduleEnd" type="time" required></div></div>
+        <label class="field-label" for="scheduleVenueFaculty">Venue faculty filter</label><select id="scheduleVenueFaculty"><option value="">All faculties</option></select>
+        <label class="field-label" for="scheduleVenue">Available venue</label><select id="scheduleVenue" required><option value="">Choose date and time first</option></select>
+        <p class="field-hint" id="scheduleVenueHint">Only active venues without an overlapping class are shown.</p>
+        <label class="field-label" for="scheduleInstructions">Class instructions (optional)</label><textarea id="scheduleInstructions" rows="3" placeholder="Materials or notes for students"></textarea>
+        <div class="form-error hidden" id="scheduleError" role="alert"></div>
+        <div class="modal-actions"><button class="button button-outline" type="button" data-close="scheduleModal">Cancel</button><button class="button button-primary" type="submit">Publish schedule <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></div>
+      </form>
+    </section>
+  </div>
+  <div class="modal-backdrop hidden" id="venueModal" role="presentation">
+    <section class="modal" role="dialog" aria-modal="true" aria-labelledby="venueModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">VENUE MANAGEMENT</p><h2 id="venueModalTitle">Add venue</h2><p>Keep faculty and location details clear for every booking.</p></div><button class="close-button" data-close="venueModal" aria-label="Close venue dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
+      <form id="venueForm">
+        <div class="field-grid"><div><label class="field-label" for="venueName">Venue name or number</label><input id="venueName" required placeholder="e.g. Lecture Hall 1"></div><div><label class="field-label" for="venueType">Venue type</label><select id="venueType" required><option>Lecture Hall</option><option>Classroom</option><option>Laboratory</option><option>Seminar Room</option></select></div></div>
+        <div class="field-grid"><div><label class="field-label" for="venueFaculty">Faculty</label><input id="venueFaculty" required placeholder="Faculty of Computing"></div><div><label class="field-label" for="venueDepartment">Department (optional)</label><input id="venueDepartment" placeholder="Computer Science"></div></div>
+        <div class="field-grid"><div><label class="field-label" for="venueCampus">Campus</label><input id="venueCampus" required placeholder="Main Campus"></div><div><label class="field-label" for="venueBuilding">Building</label><input id="venueBuilding" placeholder="Computing Building"></div></div>
+        <div class="field-grid"><div><label class="field-label" for="venueFloor">Floor or location</label><input id="venueFloor" placeholder="First floor"></div><div><label class="field-label" for="venueCapacity">Seating capacity</label><input id="venueCapacity" type="number" min="1" required></div></div>
+        <div class="field-grid"><div><label class="field-label" for="venueStatus">Availability</label><select id="venueStatus"><option value="available">Available</option><option value="unavailable">Unavailable / maintenance</option></select></div><div><label class="field-label" for="venueBuffer">Booking buffer (minutes)</label><input id="venueBuffer" type="number" min="0" max="240" value="0"></div></div>
+        <div class="form-error hidden" id="venueError" role="alert"></div>
+        <div class="modal-actions"><button class="button button-outline" type="button" data-close="venueModal">Cancel</button><button class="button button-primary" type="submit">Save venue <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></div>
+      </form>
+    </section>
+  </div>
+
   <div class="modal-backdrop hidden" id="sessionModal" role="presentation">
     <section class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
-      <div class="modal-header"><div><p class="eyebrow">NEW CLASS SESSION</p><h2 id="modalTitle">Set up your class</h2><p>Students can check in during the session window.</p></div><button class="close-button" data-close="sessionModal" aria-label="Close dialog">×</button></div>
+      <div class="modal-header"><div><p class="eyebrow">NEW CLASS SESSION</p><h2 id="modalTitle">Set up your class</h2><p>Students can check in during the session window.</p></div><button class="close-button" data-close="sessionModal" aria-label="Close dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
       <form id="sessionForm">
         <label class="field-label" for="sessionCourse">Course</label><select id="sessionCourse" required></select>
         <div class="field-grid"><div><label class="field-label" for="sessionDate">Date</label><input id="sessionDate" type="date" required></div><div><label class="field-label" for="sessionRadius">Check-in radius</label><div class="input-suffix"><input id="sessionRadius" type="number" min="10" max="2000" value="50" required><span>metres</span></div></div></div>
@@ -117,79 +200,128 @@
         <div class="field-grid"><div><label class="field-label" for="sessionLat">Latitude</label><input id="sessionLat" type="number" step="any" value="6.5158" required></div><div><label class="field-label" for="sessionLng">Longitude</label><input id="sessionLng" type="number" step="any" value="3.3894" required></div></div>
         <p class="field-hint">Use the pin coordinates for the classroom. GPS accuracy must be within 100 m.</p>
         <div class="form-error hidden" id="sessionError" role="alert"></div>
-        <div class="modal-actions"><button type="button" class="button button-outline" data-close="sessionModal">Cancel</button><button type="submit" class="button button-primary">Create session <span>→</span></button></div>
+        <div class="modal-actions"><button type="button" class="button button-outline" data-close="sessionModal">Cancel</button><button type="submit" class="button button-primary">Create session <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></div>
       </form>
     </section>
   </div>
 
   <div class="modal-backdrop hidden" id="qrModal" role="presentation">
     <section class="modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
-      <div class="modal-header"><div><p class="eyebrow">LIVE CHECK-IN</p><h2 id="qrTitle">Session QR code</h2><p id="qrCourseName">CSC 301 · Data Structures</p></div><button class="close-button" data-close="qrModal" aria-label="Close dialog">×</button></div>
+      <div class="modal-header"><div><p class="eyebrow">LIVE CHECK-IN</p><h2 id="qrTitle">Session QR code</h2><p id="qrCourseName">CSC 301 · Data Structures</p></div><button class="close-button" data-close="qrModal" aria-label="Close dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
       <div class="qr-content"><div class="qr-holder" id="qrCode"><div class="qr-placeholder">QR</div></div><div class="qr-instructions"><span class="live-pill"><i></i> CHECK-IN OPEN</span><h3>Ready when you are</h3><p>Ask students to scan with their phone camera. Their browser will open the check-in page.</p><div class="qr-meta"><span>⌖</span><div><strong id="qrLocation">NAUB Main Campus, Biu</strong><small id="qrWindow">10:00 AM – 11:00 AM</small></div></div><div class="token-row"><span>SESSION TOKEN</span><code id="qrToken">••••••••</code><button id="copySessionUrl" class="copy-button">Copy link</button></div></div></div>
-      <div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> students checked in <span class="live-caption">Updates on refresh</span></div><div class="session-actions"><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Regenerate QR</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div>
+      <div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> students checked in <span class="live-caption">Updates on refresh</span></div><div class="session-actions"><button class="button button-small button-outline" id="printQrBtn"><svg class="inline-icon"><use href="#icon-print"/></svg> Print QR</button><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Regenerate QR</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div>
       <div class="qr-disclaimer">Demo only: local browser data does not provide authoritative identity, GPS, or attendance verification.</div>
     </section>
   </div>
 
   <div class="modal-backdrop hidden" id="scanModal" role="presentation">
     <section class="modal scan-modal" role="dialog" aria-modal="true" aria-labelledby="scanTitle">
-      <div class="modal-header"><div><p class="eyebrow">STUDENT CHECK-IN</p><h2 id="scanTitle">Mark your attendance</h2><p id="scanCourse">CSC 301 · Data Structures</p></div><button class="close-button" data-close="scanModal" aria-label="Close dialog">×</button></div>
+      <div class="modal-header"><div><p class="eyebrow">STUDENT CHECK-IN</p><h2 id="scanTitle">Mark your attendance</h2><p id="scanCourse">CSC 301 · Data Structures</p></div><button class="close-button" data-close="scanModal" aria-label="Close dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
       <div id="scanFormWrap">
-        <div class="scan-session-card"><span class="scan-icon">▦</span><div><strong id="scanLocation">NAUB Main Campus, Biu</strong><small id="scanTime">Check-in is open</small></div><span class="live-pill"><i></i> OPEN</span></div>
+        <div class="scan-session-card"><svg class="scan-icon ui-icon"><use href="#icon-grid"/></svg><div><strong id="scanLocation">NAUB Main Campus, Biu</strong><small id="scanTime">Check-in is open</small></div><span class="live-pill"><i></i> OPEN</span></div>
         <label class="field-label" for="scanStudent">Your student account</label><select id="scanStudent"></select>
-        <div class="device-note"><span>▣</span><span>Check in using your registered device. Your location is used only to verify that you're near the classroom.</span></div>
+        <div class="device-note"><svg class="ui-icon"><use href="#icon-user"/></svg><span>Check in using your registered device. Your location is used only to verify that you're near the classroom.</span></div>
         <div class="location-status" id="locationStatus"><span class="location-pin">⌖</span><div><strong>Location permission needed</strong><small>We’ll check your GPS accuracy before submitting.</small></div></div>
         <div class="form-error hidden" id="scanError" role="alert"></div>
-        <button class="button button-primary button-wide" id="checkInBtn">Share location &amp; check in <span>→</span></button>
-        <button class="demo-location-button" id="demoLocationBtn">Use demo classroom location <span>ⓘ</span></button>
+        <button class="button button-primary button-wide" id="checkInBtn">Present — record attendance <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button>
+        <button class="demo-location-button" id="demoLocationBtn">Use demo classroom location <svg class="inline-icon"><use href="#icon-info"/></svg></button>
         <p class="demo-location-hint">Demo helper only — use real GPS when testing outdoors.</p>
       </div>
       <div id="scanResult" class="scan-result hidden" aria-live="polite"></div>
       <div class="qr-disclaimer">For production, check-in validation must run on the authenticated server.</div>
     </section>
   </div>
-  <div class="modal-backdrop hidden" id="studentAuthModal" role="presentation">
+  <div class="modal-backdrop hidden" id="contactModal" role="presentation">
+    <section class="modal contact-modal" role="dialog" aria-modal="true" aria-labelledby="contactModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">DIRECT CONTACT</p><h2 id="contactModalTitle">Send a message</h2><p id="contactRecipient"></p></div><button class="close-button" data-close="contactModal" aria-label="Close dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
+      <form id="contactForm">
+        <input id="contactRecipientId" type="hidden">
+        <label class="field-label" for="contactMessage">Message</label>
+        <textarea id="contactMessage" rows="5" maxlength="1000" placeholder="Write your message..." required></textarea>
+        <div class="form-error hidden" id="contactError" role="alert"></div>
+        <div class="modal-actions"><button class="button button-outline" type="button" data-close="contactModal">Cancel</button><button class="button button-primary" type="submit"><svg class="inline-icon"><use href="#icon-message"/></svg> Send message</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="modal-backdrop auth-backdrop" id="studentAuthModal" role="presentation">
     <section class="modal student-auth-modal" role="dialog" aria-modal="true" aria-labelledby="studentAuthTitle">
       <div class="student-auth-brand">
-        <span class="auth-seal"><img src="IMAGES/logo.png" alt=""></span>
-        <span class="auth-brand-divider"></span>
-        <span class="auth-seal army"><img src="IMAGES/leftside logo.png" alt=""></span>
-        <div><strong>NAUB Student Portal</strong><small>Attendance · Nigerian Army University, Biu</small></div>
-        <button class="close-button" data-close="studentAuthModal" aria-label="Close student portal">×</button>
-      </div>
-      <div class="student-auth-heading"><p class="eyebrow">STUDENT ACCESS</p><h2 id="studentAuthTitle">Welcome to your portal</h2><p>Sign in to your account or register as a NAUB student.</p></div>
-      <div class="auth-tabs" role="tablist" aria-label="Student account options">
-        <button class="auth-tab active" id="loginTab" role="tab" aria-selected="true" aria-controls="studentLoginPanel">Student login</button>
-        <button class="auth-tab" id="registerTab" role="tab" aria-selected="false" aria-controls="studentRegisterPanel">Create account</button>
-      </div>
-      <div class="auth-demo-note" role="note"><span>ⓘ</span><span>Preview mode: forms are not connected to university accounts. Your password and personal details will not be sent or saved.</span></div>
-      <form class="auth-form" id="studentLoginPanel" role="tabpanel" aria-labelledby="loginTab">
-        <label class="field-label" for="loginMatric">Matric number</label>
-        <input id="loginMatric" name="matric" type="text" autocomplete="username" placeholder="e.g. NAUB/CSC/23/001" required>
-        <label class="field-label" for="loginPassword">Password</label>
-        <input id="loginPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
-        <button class="forgot-password" type="button" id="forgotPasswordBtn">Forgot password?</button>
-        <div class="auth-feedback hidden" id="loginFeedback" role="status" aria-live="polite"></div>
-        <button class="button button-primary auth-submit" type="submit">Sign in to student portal <span>→</span></button>
-        <p class="auth-switch-copy">New to NAUB Attendance? <button type="button" data-auth-tab="register">Create a student account</button></p>
-      </form>
-      <form class="auth-form hidden" id="studentRegisterPanel" role="tabpanel" aria-labelledby="registerTab">
-        <div class="auth-field-grid">
-          <div class="field-full"><label class="field-label" for="registerName">Full name</label><input id="registerName" name="fullName" type="text" autocomplete="name" placeholder="As shown on your student ID" required minlength="3"></div>
-          <div><label class="field-label" for="registerMatric">Matric number</label><input id="registerMatric" name="matric" type="text" autocomplete="username" placeholder="e.g. NAUB/CSC/23/001" required minlength="5"></div>
-          <div><label class="field-label" for="registerPhone">Phone number</label><input id="registerPhone" name="phone" type="tel" autocomplete="tel" placeholder="+234 800 000 0000" required></div>
-          <div><label class="field-label" for="registerFaculty">Faculty</label><input id="registerFaculty" name="faculty" type="text" placeholder="Your faculty" required></div>
-          <div><label class="field-label" for="registerDepartment">Department</label><input id="registerDepartment" name="department" type="text" placeholder="Your department" required></div>
-          <div><label class="field-label" for="registerLevel">Level</label><select id="registerLevel" name="level" required><option value="">Select level</option><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option><option>600</option></select></div>
-          <div><label class="field-label" for="registerUniversity">University</label><select id="registerUniversity" name="university" required><option value="naub">Nigerian Army University, Biu</option></select></div>
-          <div><label class="field-label" for="registerPassword">Create password</label><input id="registerPassword" name="password" type="password" autocomplete="new-password" placeholder="At least 10 characters" required minlength="10"></div>
-          <div><label class="field-label" for="registerPasswordConfirm">Confirm password</label><input id="registerPasswordConfirm" name="passwordConfirm" type="password" autocomplete="new-password" placeholder="Enter password again" required minlength="10"></div>
+        <div class="auth-logo-group" aria-label="Nigerian Army University Biu logos">
+          <span class="auth-seal"><img src="IMAGES/logo.png" alt="NAUB logo"></span>
+          <span class="auth-seal army"><img src="IMAGES/leftside logo.png" alt="Nigerian Army University logo"></span>
         </div>
-        <label class="consent-check"><input id="registerConsent" type="checkbox" required><span>I agree to the use of my student details for attendance management under the university privacy notice.</span></label>
-        <div class="auth-feedback hidden" id="registerFeedback" role="status" aria-live="polite"></div>
-        <button class="button button-primary auth-submit" type="submit">Review registration <span>→</span></button>
-        <p class="auth-switch-copy">Already registered? <button type="button" data-auth-tab="login">Sign in instead</button></p>
-      </form>
+        <div><strong>Nigerian Army University Biu</strong><small>Sign in with your matriculation number and password to access the attendance portal.</small></div>
+      </div>
+      <div class="student-auth-heading"><p class="eyebrow">STUDENT ACCESS</p><h2 id="studentAuthTitle">Welcome to your portal</h2></div>
+      <div class="auth-role-tabs" role="tablist" aria-label="Choose portal">
+        <button class="auth-role-tab active" id="studentRoleTab" role="tab" aria-selected="true" aria-controls="studentRolePanel">Student portal</button>
+        <button class="auth-role-tab" id="lecturerRoleTab" role="tab" aria-selected="false" aria-controls="lecturerRolePanel">Lecturer portal</button>
+        <button class="auth-role-tab" id="adminRoleTab" role="tab" aria-selected="false" aria-controls="adminRolePanel">Admin portal</button>
+      </div>
+      <div class="auth-demo-note" role="note"><svg class="ui-icon"><use href="#icon-info"/></svg><span id="authModeNote">Demo mode is active until Supabase is configured. Production mode uses Supabase Auth and server-side role checks.</span></div>
+      <div id="studentRolePanel" role="tabpanel" aria-labelledby="studentRoleTab">
+        <div class="auth-tabs" role="tablist" aria-label="Student account options">
+          <button class="auth-tab active" id="loginTab" role="tab" aria-selected="true" aria-controls="studentLoginPanel">Student login</button>
+          <button class="auth-tab" id="registerTab" role="tab" aria-selected="false" aria-controls="studentRegisterPanel">Create account</button>
+        </div>
+        <form class="auth-form" id="studentLoginPanel" role="tabpanel" aria-labelledby="loginTab">
+          <label class="field-label" for="loginMatric">Matriculation number</label>
+          <input id="loginMatric" name="matricNumber" type="text" autocomplete="username" autocapitalize="characters" placeholder="e.g. NAUB/CSC/23/001" minlength="5" required>
+          <label class="field-label" for="studentPassword">Password</label>
+          <input id="studentPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+          <div class="auth-feedback hidden" id="loginFeedback" role="status" aria-live="polite"></div>
+          <button class="button button-primary auth-submit" type="submit">Sign in <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button>
+          <button class="auth-switch-copy auth-reset-button" type="button" data-reset-password="student">Forgot password?</button>
+          <p class="auth-switch-copy">New to Nigerian Army University Biu Attendance? <button type="button" data-auth-tab="register">Create a student account</button></p>
+        </form>
+        <form class="auth-form hidden" id="studentRegisterPanel" role="tabpanel" aria-labelledby="registerTab">
+          <div class="auth-field-grid">
+            <div class="field-full"><label class="field-label" for="registerName">Full name</label><input id="registerName" name="fullName" type="text" autocomplete="name" placeholder="As shown on your student ID" required minlength="3"></div>
+            <div><label class="field-label" for="registerMatric">Student ID / matric number</label><input id="registerMatric" name="matric" type="text" autocomplete="username" placeholder="e.g. NAUB/CSC/23/001" required minlength="5"></div>
+            <div><label class="field-label" for="registerEmail">Email address</label><input id="registerEmail" name="email" type="email" autocomplete="email" placeholder="name@example.com" required></div>
+            <div><label class="field-label" for="registerPassword">Password</label><input id="registerPassword" name="password" type="password" autocomplete="new-password" minlength="8" placeholder="At least 8 characters" required></div>
+            <div><label class="field-label" for="registerPhone">Phone number</label><input id="registerPhone" name="phone" type="tel" autocomplete="tel" placeholder="+234 800 000 0000" required></div>
+            <div><label class="field-label" for="registerFaculty">Faculty</label><input id="registerFaculty" name="faculty" type="text" placeholder="Your faculty" required></div>
+            <div><label class="field-label" for="registerDepartment">Department</label><input id="registerDepartment" name="department" type="text" placeholder="Your department" required></div>
+            <div><label class="field-label" for="registerLevel">Level</label><select id="registerLevel" name="level" required><option value="">Select level</option><option>100</option><option>200</option><option>300</option><option>400</option><option>500</option><option>600</option></select></div>
+            <div><label class="field-label" for="registerSession">Academic session</label><select id="registerSession" name="academicSession" required><option value="">Select session</option><option>2025/2026</option><option>2026/2027</option></select></div>
+            <div><label class="field-label" for="registerUniversity">University</label><select id="registerUniversity" name="university" required><option value="naub">Nigerian Army University Biu</option></select></div>
+          </div>
+          <label class="consent-check"><input id="registerConsent" type="checkbox" required><span>I agree to the use of my student details for attendance management under the university privacy notice.</span></label>
+          <div class="auth-feedback hidden" id="registerFeedback" role="status" aria-live="polite"></div>
+          <button class="button button-primary auth-submit" type="submit">Create student account <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button>
+          <p class="auth-switch-copy">Already registered? <button type="button" data-auth-tab="login">Sign in instead</button></p>
+        </form>
+      </div>
+      <div id="lecturerRolePanel" class="hidden" role="tabpanel" aria-labelledby="lecturerRoleTab">
+        <form class="auth-form" id="lecturerLoginPanel">
+          <label class="field-label" for="lecturerUsername">Lecturer username</label>
+          <input id="lecturerUsername" name="username" type="text" autocomplete="username" placeholder="Enter your lecturer username" required>
+          <label class="field-label" for="lecturerPassword">Password</label>
+          <input id="lecturerPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+          <div class="auth-feedback hidden" id="lecturerFeedback" role="status" aria-live="polite"></div>
+          <button class="button button-primary auth-submit" type="submit">Sign in to lecturer demo <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button>
+          <button class="auth-switch-copy auth-reset-button" type="button" data-reset-password="lecturer">Forgot password?</button>
+        </form>
+      </div>
+      <div id="adminRolePanel" class="hidden" role="tabpanel" aria-labelledby="adminRoleTab">
+        <form class="auth-form" id="adminLoginPanel">
+          <label class="field-label" for="adminUsername">Admin username</label>
+          <input id="adminUsername" name="username" type="text" autocomplete="username" placeholder="Enter your admin username" required>
+          <label class="field-label" for="adminPassword">Password</label>
+          <input id="adminPassword" name="password" type="password" autocomplete="current-password" placeholder="Enter your password" required>
+          <div class="auth-feedback hidden" id="adminFeedback" role="status" aria-live="polite"></div>
+          <button class="button button-primary auth-submit" type="submit">Sign in to admin demo <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button>
+          <button class="auth-switch-copy auth-reset-button" type="button" data-reset-password="admin">Forgot password?</button>
+        </form>
+      </div>
+      <section class="demo-account-list" aria-labelledby="demoAccountsTitle">
+        <div class="demo-account-heading"><strong id="demoAccountsTitle">Try a demo account</strong><span>Sample credentials</span></div>
+        <button class="demo-account" type="button" data-demo-account="student"><span class="demo-account-icon">S</span><span class="demo-account-copy"><strong>Student · Chiamaka Okafor</strong><small>Matric: 190401001</small></span><span class="demo-account-action">Use</span></button>
+        <button class="demo-account" type="button" data-demo-account="lecturer"><span class="demo-account-icon">L</span><span class="demo-account-copy"><strong>Lecturer · Dr. Amina Yusuf</strong><small>lecturer.demo · DemoLecturer26!</small></span><span class="demo-account-action">Use</span></button>
+        <button class="demo-account" type="button" data-demo-account="admin"><span class="demo-account-icon">A</span><span class="demo-account-copy"><strong>Admin · NAUB Administrator</strong><small>admin.demo · DemoAdmin26!</small></span><span class="demo-account-action">Use</span></button>
+        <p>These fixed demo credentials are visible to everyone and are not real accounts.</p>
+      </section>
     </section>
   </div>
   <div class="toast hidden" id="toast" role="status" aria-live="polite"></div>

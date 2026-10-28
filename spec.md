@@ -1,4 +1,4 @@
-# NAUB Student Attendance
+# Nigerian Army University Biu Student Attendance
 
 ## Product direction
 An attendance platform for Nigerian universities, designed for low-bandwidth mobile use and separated by university tenant. Lecturers open time- and location-bound class sessions; enrolled students check in using a QR link. Attendance used for exam eligibility must be verified and written on the authenticated server.

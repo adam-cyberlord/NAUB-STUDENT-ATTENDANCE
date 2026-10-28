@@ -3,11 +3,27 @@
 const STORAGE_KEY = 'naub-attendance-demo-v1';
 const THRESHOLD = 75;
 const MAX_GPS_ACCURACY_METRES = 100;
+const svgIcon = (name, className = 'inline-icon') => `<svg class="${className}" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
+const DEMO_ACCOUNTS = {
+  student: { role: 'student', matricNumber: '190401001', password: 'StudentDemo26!', name: 'Chiamaka Okafor' },
+  lecturer: { role: 'lecturer', username: 'lecturer.demo', password: 'DemoLecturer26!', name: 'Dr. Amina Yusuf' },
+  admin: { role: 'admin', username: 'admin.demo', password: 'DemoAdmin26!', name: 'NAUB Administrator' },
+};
+const CONTACTS = {
+  lecturer: { id: 'lecturer-amina', role: 'Lecturer', name: 'Dr. Amina Yusuf', phone: '+2348012345601', email: 'amina.yusuf@naub.edu.ng', detail: 'Computer Science · CSC 301' },
+  admin: { id: 'admin-support', role: 'Admin', name: 'NAUB Attendance Admin', phone: '+2348012345602', email: 'attendance.admin@naub.edu.ng', detail: 'Attendance support desk' },
+};
 const COURSES = [
   { id: 'csc301', code: 'CSC 301', name: 'Data Structures & Algorithms', students: 48, rate: 87, tint: 'purple', room: 'Main Lecture Theatre' },
   { id: 'csc305', code: 'CSC 305', name: 'Database Management Systems', students: 36, rate: 76, tint: 'blue', room: 'Computer Science Lab' },
   { id: 'csc311', code: 'CSC 311', name: 'Operating Systems', students: 28, rate: 91, tint: 'amber', room: 'Lecture Hall B' },
   { id: 'gst201', code: 'GST 201', name: 'Entrepreneurship Studies', students: 16, rate: 68, tint: 'purple', room: 'Main Classroom' },
+];
+const DEFAULT_VENUES = [
+  { id: 'venue-computing-1', name: 'Lecture Hall 1', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Main Campus', building: 'Computing Building', floor: 'Ground floor', type: 'Lecture Hall', capacity: 120, status: 'available', bufferMinutes: 0 },
+  { id: 'venue-engineering-1', name: 'Lecture Hall 1', faculty: 'Faculty of Engineering', department: 'Electrical Engineering', campus: 'Main Campus', building: 'Engineering Block', floor: 'Ground floor', type: 'Lecture Hall', capacity: 200, status: 'available', bufferMinutes: 0 },
+  { id: 'venue-cs-lab', name: 'Computer Science Lab', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Main Campus', building: 'Computing Building', floor: 'First floor', type: 'Laboratory', capacity: 60, status: 'available', bufferMinutes: 0 },
+  { id: 'venue-hall-b', name: 'Lecture Hall B', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Biu Campus', building: 'Main Lecture Block', floor: 'First floor', type: 'Lecture Hall', capacity: 100, status: 'available', bufferMinutes: 0 },
 ];
 const STUDENTS = [
   { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11 },
@@ -28,15 +44,57 @@ let state;
 let activeSessionId = null;
 let editingSessionId = null;
 let sessionFilter = 'all';
+let currentDemoAccount = null;
 let toastTimer;
+const adminBookingFilters = { date: '', venueId: '', faculty: '', lecturer: '' };
+const AUTH_SESSION_KEY = 'naub-attendance-auth-v1';
+const PENDING_SCAN_KEY = 'naub-pending-scan-token';
 
 document.addEventListener('DOMContentLoaded', init);
 
-function init() {
+function normalizeMatric(value) {
+  return String(value || '').trim().replace(/\s+/g, '').toUpperCase();
+}
+
+async function enforceAuthenticationGate() {
+  if (window.NaubAuth?.enabled()) {
+    try {
+      const account = await window.NaubAuth.restore();
+      if (account) {
+        enterDemoDashboard(account, false);
+        return;
+      }
+    } catch (error) {
+      console.warn('Unable to restore the Supabase session:', error);
+    }
+    document.body.classList.add('auth-required');
+    openStudentPortal();
+    return;
+  }
+  let savedAccount = null;
+  try {
+    savedAccount = JSON.parse(sessionStorage.getItem(AUTH_SESSION_KEY));
+  } catch (_) {
+    savedAccount = null;
+  }
+  if (!savedAccount || !['student', 'lecturer', 'admin'].includes(savedAccount.role)) {
+    currentDemoAccount = null;
+    document.body.classList.add('auth-required');
+    openStudentPortal();
+    return;
+  }
+  currentDemoAccount = savedAccount;
+  document.body.classList.remove('auth-required');
+  enterDemoDashboard(savedAccount, false);
+}
+
+async function init() {
   state = loadState();
   seedState();
   bindNavigation();
   bindSessionForm();
+  bindScheduleManagement();
+  bindVenueManagement();
   bindScanFlow();
   bindExports();
   bindTheme();
@@ -46,21 +104,30 @@ function init() {
   renderAll();
   setTodayLabel();
   setSessionDefaults();
+  bindMobileApp();
+  await enforceAuthenticationGate();
   openRouteSession();
 }
 
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { sessions: [], attendance: [] };
+    if (!saved) return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [] };
     const parsed = JSON.parse(saved);
     if (!parsed || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.attendance)) {
       throw new Error('Stored demo data has an unexpected shape.');
     }
+    parsed.schedules = Array.isArray(parsed.schedules) ? parsed.schedules : [];
+    parsed.scheduleHistory = Array.isArray(parsed.scheduleHistory) ? parsed.scheduleHistory : [];
+    parsed.notifications = Array.isArray(parsed.notifications) ? parsed.notifications : [];
+    parsed.venues = Array.isArray(parsed.venues) ? parsed.venues : [];
+    parsed.venueHistory = Array.isArray(parsed.venueHistory) ? parsed.venueHistory : [];
+    parsed.lecturerAttendance = Array.isArray(parsed.lecturerAttendance) ? parsed.lecturerAttendance : [];
+    parsed.messages = Array.isArray(parsed.messages) ? parsed.messages : [];
     return parsed;
   } catch (error) {
     console.error('Unable to load NAUB attendance demo data:', error);
-    return { sessions: [], attendance: [] };
+    return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [] };
   }
 }
 
@@ -74,16 +141,33 @@ function persist() {
 }
 
 function seedState() {
-  if (state.sessions.length) return;
   const now = new Date();
-  const activeStart = new Date(now.getTime() - 15 * 60_000);
-  const activeEnd = new Date(now.getTime() + 45 * 60_000);
-  state.sessions = [
-    makeSeedSession('csc301', activeStart, activeEnd, 'NAUB Main Campus, Biu'),
-    makeSeedSession('csc305', atTime(now, 13, 30), atTime(now, 14, 30), 'Computer Science Lab'),
-    makeSeedSession('csc311', atTime(now, 9, 0), atTime(now, 10, 0), 'Lecture Hall B'),
-  ];
-  persist();
+  let changed = false;
+  if (!state.venues.length) {
+    state.venues = DEFAULT_VENUES.map(venue => ({ ...venue }));
+    changed = true;
+  }
+  if (!state.sessions.length) {
+    const activeStart = new Date(now.getTime() - 15 * 60_000);
+    const activeEnd = new Date(now.getTime() + 45 * 60_000);
+    state.sessions = [
+      makeSeedSession('csc301', activeStart, activeEnd, 'NAUB Main Campus, Biu'),
+      makeSeedSession('csc305', atTime(now, 13, 30), atTime(now, 14, 30), 'Computer Science Lab'),
+      makeSeedSession('csc311', atTime(now, 9, 0), atTime(now, 10, 0), 'Lecture Hall B'),
+    ];
+    changed = true;
+  }
+  if (!state.schedules.length) {
+    const tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    state.schedules = [{
+      id: randomId(), courseId: 'csc301', date: localDate(tomorrow), startTime: '09:00', endTime: '10:30',
+      venueId: 'venue-computing-1', venue: 'Faculty of Computing — Lecture Hall 1 — Main Campus', instructions: 'Bring your Data Structures notebook.', status: 'scheduled',
+      lecturerName: 'Dr. Amina Yusuf', updatedAt: now.toISOString(), wasRescheduled: false
+    }];
+    changed = true;
+  }
+  if (changed) persist();
 }
 
 function makeSeedSession(courseId, start, end, location) {
@@ -101,6 +185,39 @@ function makeSeedSession(courseId, start, end, location) {
     status: 'open',
     demo: true,
   };
+}
+
+let deferredInstallPrompt = null;
+
+function bindMobileApp() {
+  const installButtons = [...document.querySelectorAll('[data-install-app]')];
+  const setInstallButtonsVisible = visible => installButtons.forEach(button => button.classList.toggle('hidden', !visible));
+  window.addEventListener('beforeinstallprompt', event => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    setInstallButtonsVisible(true);
+  });
+  installButtons.forEach(installButton => installButton.addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    installButton.disabled = true;
+    deferredInstallPrompt.prompt();
+    await deferredInstallPrompt.userChoice;
+    deferredInstallPrompt = null;
+    setInstallButtonsVisible(false);
+    installButton.disabled = false;
+  }));
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    setInstallButtonsVisible(false);
+    showToast('NAUB Attendance installed on this device.');
+  });
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./service-worker.js').catch(error => {
+        console.warn('Unable to register the mobile app service worker:', error);
+      });
+    });
+  }
 }
 
 function randomId() {
@@ -134,11 +251,30 @@ function bindNavigation() {
     button.addEventListener('click', () => navigateTo(button.dataset.navigate));
   });
   document.getElementById('mobileMenu').addEventListener('click', () => {
-    document.getElementById('sidebar').classList.toggle('mobile-open');
+    toggleMobileMenu();
   });
+  document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileMenu);
   document.getElementById('createSessionBtn').addEventListener('click', () => openSessionForm());
   document.getElementById('createSessionBtn2').addEventListener('click', () => openSessionForm());
-  document.getElementById('studentPortalBtn').addEventListener('click', openStudentPortal);
+  document.getElementById('studentPortalBtn').addEventListener('click', () => {
+    if (currentDemoAccount) {
+      demoSignOut();
+      return;
+    }
+    openStudentPortal();
+  });
+  document.getElementById('roleDashboardContent').addEventListener('click', event => {
+    const action = event.target.closest('[data-admin-view]');
+    if (action && currentDemoAccount && currentDemoAccount.role === 'admin') {
+      navigateTo(action.dataset.adminView);
+    }
+    const editVenue = event.target.closest('[data-edit-venue]');
+    const newVenue = event.target.closest('[data-new-venue]');
+    const toggleVenueButton = event.target.closest('[data-toggle-venue]');
+    if (currentDemoAccount?.role === 'admin' && editVenue) openVenueForm(editVenue.dataset.editVenue);
+    if (currentDemoAccount?.role === 'admin' && newVenue) openVenueForm();
+    if (currentDemoAccount?.role === 'admin' && toggleVenueButton) toggleVenue(toggleVenueButton.dataset.toggleVenue);
+  });
   document.querySelectorAll('[data-close]').forEach(button => {
     button.addEventListener('click', () => closeModal(button.dataset.close));
   });
@@ -159,50 +295,766 @@ function bindNavigation() {
   });
 }
 
+function toggleMobileMenu() {
+  const sidebar = document.getElementById('sidebar');
+  const open = sidebar.classList.toggle('mobile-open');
+  document.getElementById('sidebarBackdrop').classList.toggle('visible', open);
+  document.body.classList.toggle('menu-open', open);
+  document.getElementById('mobileMenu').setAttribute('aria-expanded', String(open));
+}
+
+function closeMobileMenu() {
+  document.getElementById('sidebar').classList.remove('mobile-open');
+  document.getElementById('sidebarBackdrop').classList.remove('visible');
+  document.body.classList.remove('menu-open');
+  document.getElementById('mobileMenu').setAttribute('aria-expanded', 'false');
+}
+
+let editingScheduleId = null;
+let editingVenueId = null;
+
+function venueById(id) {
+  return state.venues.find(venue => venue.id === id);
+}
+
+function venueLabel(venue) {
+  if (!venue) return 'Venue not selected';
+  return `${venue.faculty} — ${venue.name} — ${venue.campus || venue.building || 'Campus'}`;
+}
+
+function scheduleInterval(schedule) {
+  return {
+    start: Date.parse(`${schedule.date}T${schedule.startTime}:00`),
+    end: Date.parse(`${schedule.date}T${schedule.endTime}:00`),
+  };
+}
+
+function venueHasConflict(venueId, date, startTime, endTime, ignoreScheduleId = null) {
+  const candidate = { date, startTime, endTime };
+  const range = scheduleInterval(candidate);
+  const venue = venueById(venueId);
+  const buffer = Number(venue?.bufferMinutes || 0) * 60 * 1000;
+  return state.schedules.some(schedule => {
+    if (schedule.id === ignoreScheduleId || schedule.status === 'cancelled' || schedule.venueId !== venueId) return false;
+    const existing = scheduleInterval(schedule);
+    return existing.start < range.end + buffer && range.start < existing.end + buffer;
+  });
+}
+
+function availableVenues(date, startTime, endTime, ignoreScheduleId = null) {
+  if (!date || !startTime || !endTime || endTime <= startTime) return [];
+  return state.venues.filter(venue => venue.status === 'available'
+    && venue.capacity >= 1
+    && !venueHasConflict(venue.id, date, startTime, endTime, ignoreScheduleId));
+}
+
+function formatVenueDetails(venue) {
+  if (!venue) return 'Venue details unavailable';
+  return `${venueLabel(venue)} · ${venue.building || 'Building not specified'} · ${venue.type} · ${venue.capacity} seats`;
+}
+
+function scheduleStatus(schedule) {
+  if (schedule.status === 'cancelled') return 'Cancelled';
+  const end = new Date(`${schedule.date}T${schedule.endTime || '23:59'}`);
+  if (end.getTime() < Date.now()) return 'Completed';
+  return schedule.wasRescheduled ? 'Rescheduled' : 'Scheduled';
+}
+
+function scheduleDateTime(schedule, time) {
+  return new Date(`${schedule.date}T${time}:00`).toISOString();
+}
+
+function notifyEnrolledStudents(schedule, action, previous = null) {
+  const course = courseById(schedule.courseId);
+  const students = STUDENTS.filter(student => student.courseIds.includes(schedule.courseId));
+  students.forEach(student => {
+    const eventKey = `${schedule.id}:${action}:${schedule.updatedAt}`;
+    if (state.notifications.some(item => item.studentId === student.id && item.eventKey === eventKey)) return;
+    const title = action === 'cancelled' ? `${course.code} class cancelled`
+      : action === 'rescheduled' ? `${course.code} class rescheduled`
+      : action === 'venue_changed' ? `${course.code} venue changed`
+      : `${course.code} class published`;
+    let body = `${schedule.date} · ${schedule.startTime}-${schedule.endTime} · ${schedule.venue}`;
+    if ((action === 'rescheduled' || action === 'venue_changed') && previous) {
+      body = `Previous: ${previous.date} · ${previous.startTime}-${previous.endTime} · ${previous.venue}. Now: ${body}`;
+    }
+    state.notifications.push({ id: randomId(), studentId: student.id, scheduleId: schedule.id, eventKey, title, body, action, read: false, createdAt: new Date().toISOString() });
+  });
+}
+
+function bindScheduleManagement() {
+  ['scheduleDate', 'scheduleStart', 'scheduleEnd', 'scheduleVenueFaculty'].forEach(id => {
+    document.getElementById(id).addEventListener('change', refreshVenueOptions);
+  });
+  document.getElementById('scheduleForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const courseId = document.getElementById('scheduleCourse').value;
+    const venue = venueById(document.getElementById('scheduleVenue').value);
+    const schedule = {
+      id: editingScheduleId || randomId(), courseId, date: document.getElementById('scheduleDate').value,
+      startTime: document.getElementById('scheduleStart').value, endTime: document.getElementById('scheduleEnd').value,
+      venueId: venue?.id || '', venue: venue ? venueLabel(venue) : '', instructions: document.getElementById('scheduleInstructions').value.trim(),
+      lecturerName: currentDemoAccount?.name || 'Dr. Amina Yusuf', status: 'scheduled', updatedAt: new Date().toISOString(), wasRescheduled: false
+    };
+    const course = courseById(courseId);
+    if (schedule.endTime <= schedule.startTime) {
+      document.getElementById('scheduleError').textContent = 'End time must be later than start time.';
+      document.getElementById('scheduleError').classList.remove('hidden');
+      return;
+    }
+    if (!venue || venue.status !== 'available') return scheduleError('Select an active venue.');
+    if (venue.capacity < course.students) return scheduleError(`This venue seats ${venue.capacity}, but ${course.code} has ${course.students} enrolled students.`);
+    if (venueHasConflict(venue.id, schedule.date, schedule.startTime, schedule.endTime, editingScheduleId)) {
+      return scheduleError('That venue is already booked during this time. Choose another venue or time.');
+    }
+    const existingIndex = state.schedules.findIndex(item => item.id === schedule.id);
+    if (existingIndex >= 0) {
+      const previous = state.schedules[existingIndex];
+      const dateChanged = previous.date !== schedule.date
+        || previous.startTime !== schedule.startTime
+        || previous.endTime !== schedule.endTime;
+      const venueChanged = previous.venueId !== schedule.venueId;
+      schedule.wasRescheduled = dateChanged;
+      state.scheduleHistory.push({ scheduleId: schedule.id, previousDate: previous.date, previousStartTime: previous.startTime, previousEndTime: previous.endTime, previousVenue: previous.venue, changedAt: new Date().toISOString() });
+      state.schedules[existingIndex] = schedule;
+      if (dateChanged) notifyEnrolledStudents(schedule, 'rescheduled', previous);
+      else if (venueChanged) notifyEnrolledStudents(schedule, 'venue_changed', previous);
+      showToast('Class schedule updated and published.');
+    } else {
+      state.schedules.push(schedule);
+      notifyEnrolledStudents(schedule, 'published');
+      showToast('Class schedule published.');
+    }
+    persist(); renderAll(); renderLecturerSchedules(); if (currentDemoAccount) renderRoleDashboard(currentDemoAccount);
+    closeModal('scheduleModal'); editingScheduleId = null;
+  });
+  window.addEventListener('storage', event => {
+    if (event.key === STORAGE_KEY) {
+      state = loadState();
+      renderAll();
+      renderLecturerSchedules();
+      if (currentDemoAccount) renderRoleDashboard(currentDemoAccount);
+    }
+  });
+  window.setInterval(() => {
+    const latest = loadState();
+    if (JSON.stringify(latest) !== JSON.stringify(state)) { state = latest; renderAll(); renderLecturerSchedules(); if (currentDemoAccount) renderRoleDashboard(currentDemoAccount); }
+  }, 30000);
+}
+
+function scheduleError(message) {
+  const error = document.getElementById('scheduleError');
+  error.textContent = message;
+  error.classList.remove('hidden');
+}
+
+function refreshVenueOptions() {
+  const select = document.getElementById('scheduleVenue');
+  const faculty = document.getElementById('scheduleVenueFaculty').value;
+  const course = courseById(document.getElementById('scheduleCourse').value);
+  const venues = availableVenues(
+    document.getElementById('scheduleDate').value,
+    document.getElementById('scheduleStart').value,
+    document.getElementById('scheduleEnd').value,
+    editingScheduleId
+  ).filter(venue => !faculty || venue.faculty === faculty);
+  const previous = select.value;
+  select.innerHTML = venues.length
+    ? venues.map(venue => `<option value="${venue.id}">${escapeHtml(formatVenueDetails(venue))}</option>`).join('')
+    : '<option value="">No active venues available for this time</option>';
+  if (venues.some(venue => venue.id === previous)) select.value = previous;
+  document.getElementById('scheduleVenueHint').textContent = venues.length
+    ? `${venues.length} active venue${venues.length === 1 ? '' : 's'} available${course ? ` for ${course.code}` : ''}.`
+    : 'No venues are available. Choose another date or time.';
+}
+
+function openScheduleForm(scheduleId = null) {
+  editingScheduleId = scheduleId;
+  const schedule = scheduleId ? state.schedules.find(item => item.id === scheduleId) : null;
+  const courseSelect = document.getElementById('scheduleCourse');
+  courseSelect.innerHTML = COURSES.map(course => `<option value="${course.id}">${escapeHtml(course.code)} · ${escapeHtml(course.name)}</option>`).join('');
+  const facultySelect = document.getElementById('scheduleVenueFaculty');
+  facultySelect.innerHTML = `<option value="">All faculties</option>${[...new Set(state.venues.map(venue => venue.faculty))].sort().map(faculty => `<option value="${escapeHtml(faculty)}">${escapeHtml(faculty)}</option>`).join('')}`;
+  document.getElementById('scheduleModalTitle').textContent = schedule ? 'Reschedule class' : 'Publish a class';
+  document.getElementById('scheduleDate').value = schedule?.date || new Date().toISOString().slice(0, 10);
+  document.getElementById('scheduleStart').value = schedule?.startTime || '09:00';
+  document.getElementById('scheduleEnd').value = schedule?.endTime || '10:00';
+  document.getElementById('scheduleVenue').value = schedule?.venueId || '';
+  document.getElementById('scheduleInstructions').value = schedule?.instructions || '';
+  if (schedule) courseSelect.value = schedule.courseId;
+  refreshVenueOptions();
+  if (schedule?.venueId && [...document.getElementById('scheduleVenue').options].some(option => option.value === schedule.venueId)) {
+    document.getElementById('scheduleVenue').value = schedule.venueId;
+  }
+  document.getElementById('scheduleError').classList.add('hidden');
+  openModal('scheduleModal');
+}
+
+function renderLecturerSchedules() {
+  const container = document.getElementById('lecturerScheduleManagement');
+  if (!container) return;
+  const schedules = [...state.schedules].sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
+  const today = localDate(new Date());
+  const todaysSchedules = schedules.filter(schedule => schedule.date === today && schedule.status !== 'cancelled');
+  const lecturerRecords = state.lecturerAttendance.filter(record => record.lecturerId === currentDemoAccount?.userId);
+  const checkInSection = `<section class="schedule-management section-panel"><div class="panel-heading"><div><h2>My Attendance</h2><p>Check in for your own scheduled classes. This is separate from student attendance.</p></div></div><div class="schedule-list">${todaysSchedules.map(schedule => {
+    const course = courseById(schedule.courseId);
+    const record = lecturerRecords.find(item => item.scheduleId === schedule.id);
+    return `<article class="schedule-card"><div class="schedule-details"><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><p>${escapeHtml(schedule.startTime)}–${escapeHtml(schedule.endTime)} · ${escapeHtml(schedule.venue)}</p></div>${record ? `<span class="table-status">Checked in · ${escapeHtml(record.status)}</span>` : `<button class="button button-small button-primary" type="button" data-lecturer-checkin="${schedule.id}">Check in</button>`}</article>`;
+  }).join('') || '<div class="empty-state"><strong>No classes scheduled today</strong>Your lecturer check-in options for today will appear here.</div>'}</div></section>`;
+  container.innerHTML = `${checkInSection}<section class="schedule-management section-panel"><div class="panel-heading"><div><h2>Manage Class Attendance</h2><p>Create, reschedule, cancel, or start student attendance for your classes.</p></div><button class="button button-primary button-small" type="button" data-new-schedule>${svgIcon('plus')} Publish class</button></div><div class="schedule-list">${schedules.map(schedule => {
+    const course = courseById(schedule.courseId);
+    const status = scheduleStatus(schedule);
+    const sessionExists = state.sessions.some(session => session.scheduleId === schedule.id && session.status !== 'closed');
+    const venue = venueById(schedule.venueId);
+    return `<article class="schedule-card"><div><span class="course-monogram ${escapeHtml(course.tint)}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</span></div><div class="schedule-details"><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><p>${escapeHtml(formatDate(schedule.date))} · ${escapeHtml(schedule.startTime)}–${escapeHtml(schedule.endTime)}</p><p>${escapeHtml(venue ? venueLabel(venue) : schedule.venue)}</p>${schedule.instructions ? `<small>${escapeHtml(schedule.instructions)}</small>` : ''}</div><span class="table-status schedule-status status-${status.toLowerCase()}">${status}</span><div class="schedule-actions"><button class="button button-small button-outline" type="button" data-edit-schedule="${schedule.id}" ${schedule.status === 'cancelled' || sessionExists ? 'disabled' : ''}>Reschedule</button><button class="button button-small button-outline" type="button" data-start-schedule="${schedule.id}" ${schedule.status === 'cancelled' || sessionExists ? 'disabled' : ''}>${sessionExists ? 'Session active' : 'Start attendance'}</button><button class="button button-small danger-outline" type="button" data-cancel-schedule="${schedule.id}" ${schedule.status === 'cancelled' || sessionExists ? 'disabled' : ''}>Cancel</button></div></article>`;
+  }).join('') || '<div class="empty-state"><strong>No scheduled classes</strong>Publish a class for your students.</div>'}</div></section>`;
+  container.querySelector('[data-new-schedule]').addEventListener('click', () => openScheduleForm());
+  container.querySelectorAll('[data-lecturer-checkin]').forEach(button => button.addEventListener('click', () => checkInLecturerSchedule(button.dataset.lecturerCheckin)));
+  container.querySelectorAll('[data-edit-schedule]').forEach(button => button.addEventListener('click', () => openScheduleForm(button.dataset.editSchedule)));
+  container.querySelectorAll('[data-cancel-schedule]').forEach(button => button.addEventListener('click', () => cancelSchedule(button.dataset.cancelSchedule)));
+  container.querySelectorAll('[data-start-schedule]').forEach(button => button.addEventListener('click', () => startScheduledAttendance(button.dataset.startSchedule)));
+}
+
+async function checkInLecturerSchedule(scheduleId) {
+  const schedule = state.schedules.find(item => item.id === scheduleId);
+  if (!schedule) return;
+  if (window.NaubAuth?.enabled()) {
+    try {
+      const result = await window.NaubAuth.checkInLecturer(scheduleId);
+      if (!result?.ok) {
+        showToast(result?.reason === 'already_checked_in' ? 'You have already checked in for this class.' : 'Lecturer check-in was not accepted.', 'error');
+        return;
+      }
+      showToast(`Lecturer check-in recorded as ${result.status}.`);
+    } catch (error) {
+      console.error('Lecturer check-in failed:', error);
+      showToast('Lecturer check-in could not be completed.', 'error');
+      return;
+    }
+  } else {
+    const record = {
+      id: randomId(), lecturerId: currentDemoAccount?.userId || currentDemoAccount?.name || 'demo-lecturer',
+      scheduleId, status: 'on_time', checkedInAt: new Date().toISOString(), demo: true
+    };
+    if (state.lecturerAttendance.some(item => item.lecturerId === record.lecturerId && item.scheduleId === scheduleId)) {
+      showToast('You have already checked in for this class.', 'error');
+      return;
+    }
+    state.lecturerAttendance.push(record);
+    persist();
+    showToast('Lecturer check-in recorded in the browser demo.');
+  }
+  renderLecturerSchedules();
+}
+
+function cancelSchedule(scheduleId) {
+  const schedule = state.schedules.find(item => item.id === scheduleId);
+  if (!schedule || schedule.status === 'cancelled' || !window.confirm('Cancel this class? Enrolled students will be notified.')) return;
+  const previous = { ...schedule }; schedule.status = 'cancelled'; schedule.updatedAt = new Date().toISOString();
+  state.sessions.filter(session => session.scheduleId === scheduleId && session.status === 'open').forEach(session => {
+    session.status = 'closed';
+    session.closedAt = schedule.updatedAt;
+  });
+  notifyEnrolledStudents(schedule, 'cancelled', previous); persist(); renderAll(); renderLecturerSchedules(); if (currentDemoAccount) renderRoleDashboard(currentDemoAccount); showToast('Class cancelled and students notified.');
+}
+
+function startScheduledAttendance(scheduleId) {
+  const schedule = state.schedules.find(item => item.id === scheduleId);
+  if (!schedule || schedule.status === 'cancelled') { showToast('Cancelled classes cannot start attendance.', 'error'); return; }
+  const start = new Date(scheduleDateTime(schedule, schedule.startTime));
+  const end = new Date(scheduleDateTime(schedule, schedule.endTime));
+  const session = { id: randomId(), scheduleId, courseId: schedule.courseId, date: schedule.date, startAt: start.toISOString(), endAt: end.toISOString(), location: schedule.venue, latitude: 10.61, longitude: 12.19, radius: 50, token: randomId() + randomId(), status: 'open', demo: true };
+  state.sessions.push(session); persist(); renderAll(); renderLecturerSchedules(); navigateTo('sessions'); showToast('Attendance session started for this scheduled class.'); openQrModal(session.id);
+}
+
 function bindStudentAuth() {
+  const authModeNote = document.getElementById('authModeNote');
+  if (window.NaubAuth?.enabled()) {
+    authModeNote.textContent = 'Production mode: authentication, session handling, and role access are enforced by Supabase.';
+  }
+  document.querySelectorAll('[data-reset-password]').forEach(button => {
+    button.addEventListener('click', async () => {
+      if (!window.NaubAuth?.enabled()) {
+        showToast('Password recovery is available after Supabase is configured.', 'error');
+        return;
+      }
+      const email = window.prompt('Enter the email address linked to your account.');
+      if (!email) return;
+      try {
+        await window.NaubAuth.resetPassword(email.trim());
+        showToast('If that account exists, a password reset email has been sent.');
+      } catch (error) {
+        console.warn('Password reset request failed:', error);
+        showToast('Password reset could not be requested. Try again later.', 'error');
+      }
+    });
+  });
+  document.getElementById('studentRoleTab').addEventListener('click', () => setAuthRole('student'));
+  document.getElementById('lecturerRoleTab').addEventListener('click', () => setAuthRole('lecturer'));
+  document.getElementById('adminRoleTab').addEventListener('click', () => setAuthRole('admin'));
   document.getElementById('loginTab').addEventListener('click', () => setStudentAuthTab('login'));
   document.getElementById('registerTab').addEventListener('click', () => setStudentAuthTab('register'));
   document.querySelectorAll('[data-auth-tab]').forEach(button => {
     button.addEventListener('click', () => setStudentAuthTab(button.dataset.authTab));
   });
-  document.getElementById('forgotPasswordBtn').addEventListener('click', () => {
-    setAuthFeedback('loginFeedback', 'Password reset is not available in this preview. In production, use the university account recovery service.', true);
-  });
-  document.getElementById('studentLoginPanel').addEventListener('submit', event => {
+  document.getElementById('studentLoginPanel').addEventListener('submit', async event => {
     event.preventDefault();
-    setAuthFeedback('loginFeedback', 'The form is valid, but student sign-in is not connected in this preview. No password was sent or saved.', false);
-    document.getElementById('loginPassword').value = '';
+    const matricNumber = normalizeMatric(document.getElementById('loginMatric').value);
+    const password = document.getElementById('studentPassword').value;
+    if (window.NaubAuth?.enabled()) {
+      try {
+        const account = await window.NaubAuth.signInStudent(matricNumber, password);
+        enterDemoDashboard(account);
+      } catch (error) {
+        console.warn('Student authentication failed:', error);
+        setAuthFeedback('loginFeedback', 'The matriculation number or password is incorrect.', true);
+      } finally {
+        document.getElementById('studentPassword').value = '';
+      }
+      return;
+    }
+    const account = DEMO_ACCOUNTS.student;
+    document.getElementById('studentPassword').value = '';
+    if (normalizeMatric(account.matricNumber) !== matricNumber || account.password !== password) {
+      setAuthFeedback('loginFeedback', 'The matriculation number or password is incorrect. Please try again.', true);
+      return;
+    }
+    enterDemoDashboard(account);
+  });
+  document.getElementById('adminLoginPanel').addEventListener('submit', async event => {
+    event.preventDefault();
+    const username = document.getElementById('adminUsername').value.trim();
+    const password = document.getElementById('adminPassword').value;
+    if (window.NaubAuth?.enabled()) {
+      try {
+        const account = await window.NaubAuth.signInPassword(username, password);
+        if (account.role !== 'admin') throw new Error('role_not_allowed');
+        enterDemoDashboard(account);
+      } catch (error) {
+        console.warn('Administrator authentication failed:', error);
+        setAuthFeedback('adminFeedback', 'The credentials are invalid or this account is not authorized for the administrator portal.', true);
+      } finally {
+        document.getElementById('adminPassword').value = '';
+      }
+      return;
+    }
+    const isDemoAccount = username === DEMO_ACCOUNTS.admin.username && password === DEMO_ACCOUNTS.admin.password;
+    document.getElementById('adminPassword').value = '';
+    if (!isDemoAccount) {
+      setAuthFeedback('adminFeedback', 'Those credentials do not match the public demo admin account. Use the sample account below.', true);
+      return;
+    }
+    enterDemoDashboard(DEMO_ACCOUNTS.admin);
+  });
+  document.getElementById('lecturerLoginPanel').addEventListener('submit', async event => {
+    event.preventDefault();
+    const username = document.getElementById('lecturerUsername').value.trim();
+    const password = document.getElementById('lecturerPassword').value;
+    if (window.NaubAuth?.enabled()) {
+      try {
+        const account = await window.NaubAuth.signInPassword(username, password);
+        if (account.role !== 'lecturer') throw new Error('role_not_allowed');
+        enterDemoDashboard(account);
+      } catch (error) {
+        console.warn('Lecturer authentication failed:', error);
+        setAuthFeedback('lecturerFeedback', 'The credentials are invalid or this account is not authorized for the lecturer portal.', true);
+      } finally {
+        document.getElementById('lecturerPassword').value = '';
+      }
+      return;
+    }
+    const isDemoAccount = username === DEMO_ACCOUNTS.lecturer.username && password === DEMO_ACCOUNTS.lecturer.password;
+    document.getElementById('lecturerPassword').value = '';
+    if (!isDemoAccount) {
+      setAuthFeedback('lecturerFeedback', 'Those credentials do not match the public demo lecturer account. Use the sample account below.', true);
+      return;
+    }
+    enterDemoDashboard(DEMO_ACCOUNTS.lecturer);
+  });
+  document.querySelectorAll('[data-demo-account]').forEach(button => {
+    button.addEventListener('click', () => fillDemoAccount(button.dataset.demoAccount));
   });
   const registerForm = document.getElementById('studentRegisterPanel');
-  const confirmPassword = document.getElementById('registerPasswordConfirm');
   const phoneInput = document.getElementById('registerPhone');
   const checkPhone = () => {
     const digits = phoneInput.value.replace(/\D/g, '');
     phoneInput.setCustomValidity(digits.length < 10 || digits.length > 15 ? 'Enter a phone number with 10 to 15 digits.' : '');
   };
   phoneInput.addEventListener('input', checkPhone);
-  const checkPasswordMatch = () => {
-    const matches = document.getElementById('registerPassword').value === confirmPassword.value;
-    confirmPassword.setCustomValidity(matches ? '' : 'Passwords do not match.');
-  };
-  document.getElementById('registerPassword').addEventListener('input', checkPasswordMatch);
-  confirmPassword.addEventListener('input', checkPasswordMatch);
-  registerForm.addEventListener('submit', event => {
+  registerForm.addEventListener('submit', async event => {
     event.preventDefault();
     checkPhone();
-    checkPasswordMatch();
     if (!registerForm.reportValidity()) return;
-    setAuthFeedback('registerFeedback', 'Your details passed the form checks. Account creation is not connected in this preview, and none of these details were saved.', false);
-    document.getElementById('registerPassword').value = '';
-    confirmPassword.value = '';
+    try {
+      const details = {
+        fullName: document.getElementById('registerName').value.trim(),
+        matricNumber: normalizeMatric(document.getElementById('registerMatric').value),
+        email: document.getElementById('registerEmail').value.trim(),
+        password: document.getElementById('registerPassword').value,
+        phone: phoneInput.value.trim(),
+        faculty: document.getElementById('registerFaculty').value.trim(),
+        department: document.getElementById('registerDepartment').value.trim(),
+        level: document.getElementById('registerLevel').value,
+        academicSession: document.getElementById('registerSession').value,
+      };
+      if (!window.NaubAuth?.enabled()) {
+        setAuthFeedback('registerFeedback', 'Production registration is unavailable until Supabase is configured. The demo does not save account details.', true);
+        return;
+      }
+      await window.NaubAuth.registerStudent(details);
+      setAuthFeedback('registerFeedback', 'Registration submitted. An administrator must approve your account before you can sign in.', false);
+      registerForm.reset();
+      phoneInput.setCustomValidity('');
+    } catch (error) {
+      console.error('Unable to preview registration:', error);
+      const messages = {
+        matric_number_already_registered: 'That matriculation number is already registered.',
+        email_already_registered: 'That email address is already registered.',
+        invalid_registration_details: 'Check the registration details and try again.',
+      };
+      setAuthFeedback('registerFeedback', messages[error.message] || 'Registration could not be completed. No account details were saved.', true);
+    }
   });
 }
 
 function openStudentPortal() {
+  setAuthRole('student');
   setStudentAuthTab('login');
   setAuthFeedback('loginFeedback', '', false);
   setAuthFeedback('registerFeedback', '', false);
+  setAuthFeedback('adminFeedback', '', false);
   openModal('studentAuthModal');
+}
+
+function setAuthRole(role) {
+  const roles = {
+    student: { label: 'Student portal', title: 'Welcome to your portal', eyebrow: 'STUDENT ACCESS', description: 'Sign in with your matriculation number and password or register as a Nigerian Army University Biu student.' },
+    lecturer: { label: 'Lecturer portal', title: 'Lecturer sign in', eyebrow: 'LECTURER ACCESS', description: 'Use the separate lecturer demo account to preview the lecturer workspace.' },
+    admin: { label: 'Admin portal', title: 'Admin sign in', eyebrow: 'ADMIN ACCESS', description: 'Use the separate administrator demo account to preview the dashboard.' },
+  };
+  const selected = roles[role] || roles.student;
+  document.getElementById('studentRoleTab').classList.toggle('active', role === 'student');
+  document.getElementById('lecturerRoleTab').classList.toggle('active', role === 'lecturer');
+  document.getElementById('adminRoleTab').classList.toggle('active', role === 'admin');
+  document.getElementById('studentRoleTab').setAttribute('aria-selected', String(role === 'student'));
+  document.getElementById('lecturerRoleTab').setAttribute('aria-selected', String(role === 'lecturer'));
+  document.getElementById('adminRoleTab').setAttribute('aria-selected', String(role === 'admin'));
+  document.getElementById('studentRolePanel').classList.toggle('hidden', role !== 'student');
+  document.getElementById('lecturerRolePanel').classList.toggle('hidden', role !== 'lecturer');
+  document.getElementById('adminRolePanel').classList.toggle('hidden', role !== 'admin');
+  document.querySelector('#studentAuthTitle').textContent = selected.title;
+  document.querySelector('.student-auth-heading .eyebrow').textContent = selected.eyebrow;
+  setAuthFeedback('adminFeedback', '', false);
+  setAuthFeedback('lecturerFeedback', '', false);
+}
+
+function fillDemoAccount(role) {
+  const account = DEMO_ACCOUNTS[role];
+  if (!account) return;
+  setAuthRole(account.role);
+  if (account.role === 'student') {
+    setStudentAuthTab('login');
+    document.getElementById('loginMatric').value = account.matricNumber;
+    document.getElementById('studentPassword').value = account.password;
+  } else {
+    document.getElementById(`${account.role}Username`).value = account.username;
+    document.getElementById(`${account.role}Password`).value = account.password;
+  }
+}
+
+function enterDemoDashboard(account, persistSession = true) {
+  currentDemoAccount = account;
+  if (persistSession) sessionStorage.setItem(AUTH_SESSION_KEY, JSON.stringify(account));
+  document.body.classList.remove('auth-required');
+  clearStudentAuthForms();
+  closeModal('studentAuthModal');
+
+  const isLecturer = account.role === 'lecturer';
+  document.querySelectorAll('.page').forEach(section => {
+    section.classList.toggle('active', isLecturer ? section.id === 'page-dashboard' : section.id === 'page-role-dashboard');
+  });
+  document.querySelectorAll('.nav-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.page === 'dashboard');
+    item.classList.toggle('hidden', account.role === 'student' && item.dataset.page !== 'dashboard');
+  });
+  document.querySelector('.workspace-label').textContent = `${account.role.toUpperCase()} WORKSPACE`;
+  document.querySelector('.breadcrumb > span').textContent = `${account.role[0].toUpperCase()}${account.role.slice(1)} workspace`;
+  document.getElementById('pageCrumb').textContent = 'Overview';
+  document.getElementById('profileButton').setAttribute('aria-label', `Signed in to demo as ${account.name}`);
+  document.querySelector('#profileButton .profile-copy strong').textContent = account.name;
+  document.querySelector('#profileButton .profile-copy small').textContent = `${account.role[0].toUpperCase()}${account.role.slice(1)} · Nigerian Army University Biu`;
+  document.querySelector('#profileButton .avatar').textContent = initialsFor(account.name);
+  document.querySelector('.top-avatar').textContent = initialsFor(account.name);
+  document.getElementById('portalButtonLabel').textContent = 'Sign out';
+  document.querySelector('.student-portal-icon').innerHTML = '<use href="#icon-arrow-right"></use>';
+
+  if (isLecturer) {
+    document.getElementById('welcomeTitle').innerHTML = `Good morning, ${escapeHtml(account.name.replace(/^Dr\.\s*/, '').split(' ')[0])} ${svgIcon('star', 'title-icon')}`;
+    document.getElementById('pageCrumb').textContent = 'Overview';
+  } else {
+    renderRoleDashboard(account);
+  }
+  showToast(`${account.role[0].toUpperCase()}${account.role.slice(1)} demo dashboard opened.`);
+  if (account.role === 'student') resumePendingScan();
+}
+
+async function demoSignOut() {
+  if (currentDemoAccount?.production && window.NaubAuth?.enabled()) {
+    try {
+      await window.NaubAuth.signOut();
+    } catch (error) {
+      console.error('Unable to sign out of Supabase:', error);
+      showToast('Sign out could not be completed. Please try again.', 'error');
+      return;
+    }
+  }
+  currentDemoAccount = null;
+  sessionStorage.removeItem(AUTH_SESSION_KEY);
+  document.body.classList.add('auth-required');
+  openStudentPortal();
+}
+
+function renderRoleDashboard(account) {
+  const container = document.getElementById('roleDashboardContent');
+  container.innerHTML = account.role === 'student'
+    ? renderStudentDashboard(account)
+    : renderAdminDashboard(account);
+  if (account.role === 'admin') bindAdminBookingFilters();
+}
+
+function contactRecords(role) {
+  if (role === 'student') return [CONTACTS.lecturer, CONTACTS.admin];
+  if (role === 'lecturer') {
+    return [CONTACTS.admin, ...STUDENTS.map((student, index) => ({
+      id: `student-${student.id}`, role: 'Student', name: student.name, phone: `+234803${String(100000 + index).slice(-6)}`,
+      email: `${student.matric.toLowerCase()}@student.naub.edu.ng`, detail: `${student.matric} · enrolled student`,
+    }))];
+  }
+  return [CONTACTS.lecturer, ...STUDENTS.map((student, index) => ({
+    id: `student-${student.id}`, role: 'Student', name: student.name, phone: `+234803${String(100000 + index).slice(-6)}`,
+    email: `${student.matric.toLowerCase()}@student.naub.edu.ng`, detail: `${student.matric} · student`,
+  }))];
+}
+
+function renderContactPanel(role) {
+  const records = contactRecords(role);
+  const label = role === 'student' ? 'Lecturers and attendance support' : role === 'lecturer' ? 'Students and administration' : 'Lecturers and students';
+  return `<section class="panel contact-panel"><div class="panel-heading"><div><h2>Contact directory</h2><p>${label}. Call or send a direct message.</p></div></div><div class="contact-list">${records.map(contact => `
+    <article class="contact-card"><span class="student-avatar">${escapeHtml(initialsFor(contact.name))}</span><div class="contact-card-copy"><strong>${escapeHtml(contact.name)}</strong><small>${escapeHtml(contact.role)} · ${escapeHtml(contact.detail)}</small></div><div class="contact-actions"><a class="icon-button" href="tel:${escapeHtml(contact.phone)}" aria-label="Call ${escapeHtml(contact.name)}" title="Call"><svg class="ui-icon"><use href="#icon-phone"/></svg></a><button class="icon-button" type="button" data-contact-message="${escapeHtml(contact.id)}" aria-label="Message ${escapeHtml(contact.name)}" title="Message"><svg class="ui-icon"><use href="#icon-message"/></svg></button></div></article>`).join('')}</div><p class="field-hint">Phone numbers and messages are demo contacts in this browser preview. Production direct messaging should be connected to the university directory and notification service.</p></section>`;
+}
+
+function findContact(id) {
+  return [CONTACTS.lecturer, CONTACTS.admin, ...STUDENTS.map((student, index) => ({
+    id: `student-${student.id}`, role: 'Student', name: student.name, phone: `+234803${String(100000 + index).slice(-6)}`,
+    email: `${student.matric.toLowerCase()}@student.naub.edu.ng`, detail: student.matric,
+  }))].find(contact => contact.id === id);
+}
+
+function openContactModal(contactId) {
+  const contact = findContact(contactId);
+  if (!contact) {
+    showToast('This contact is no longer available.', 'error');
+    return;
+  }
+  document.getElementById('contactRecipientId').value = contact.id;
+  document.getElementById('contactRecipient').textContent = `${contact.role} · ${contact.name} · ${contact.phone}`;
+  document.getElementById('contactMessage').value = '';
+  document.getElementById('contactError').classList.add('hidden');
+  openModal('contactModal');
+}
+
+function renderStudentDashboard(account) {
+  const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
+  const courses = student.courseIds.map(courseId => courseById(courseId));
+  const attendanceHistory = [
+    { course: courses[0], daysAgo: 1, status: 'Present' },
+    { course: courses[1], daysAgo: 3, status: 'Present' },
+    { course: courses[0], daysAgo: 5, status: 'Present' },
+  ];
+  const courseCards = courses.map(course => `
+    <article class="student-course-card">
+      <div class="student-course-heading"><span class="course-monogram ${escapeHtml(course.tint)}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</span><div><strong>${escapeHtml(course.code)}</strong><small>${escapeHtml(course.name)}</small></div></div>
+      <div class="student-course-rate"><strong>${course.rate}%</strong><span>attendance</span></div>
+      <div class="progress-track"><div class="progress-fill ${course.rate < THRESHOLD ? 'warn' : ''}" style="width:${course.rate}%"></div></div>
+      <small class="student-course-foot">Sample semester attendance rate${course.rate < THRESHOLD ? ' · Below 75% threshold' : ''}</small>
+    </article>`).join('');
+  const attendanceRows = courses.map(course => {
+    const total = 12;
+    const present = Math.round(total * course.rate / 100);
+    const absent = total - present;
+    return `<tr><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td><span class="attendance-meter"><i class="${course.rate < THRESHOLD ? 'low' : ''}" style="width:${course.rate}%"></i></span>${course.rate}%</td><td><div class="attendance-breakdown"><span class="present">${present} present</span><span class="absent">${absent} absent</span></div></td><td><span class="table-status ${course.rate < THRESHOLD ? 'at-risk' : ''}">${course.rate < THRESHOLD ? 'Below threshold' : 'On track'}</span></td></tr>`;
+  }).join('');
+  const historyRows = attendanceHistory.map(item => {
+    const date = new Date();
+    date.setDate(date.getDate() - item.daysAgo);
+    return `<tr><td>${escapeHtml(item.course.code)} · ${escapeHtml(item.course.name)}</td><td>${escapeHtml(date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${item.status}</span></td></tr>`;
+  }).join('');
+  const nextSession = [...state.sessions].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)).find(session => Date.parse(session.endAt) > Date.now());
+
+  return `
+    <div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>
+    <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT WORKSPACE</p><h1 id="roleDashboardTitle">Welcome, ${escapeHtml(account.name.split(' ')[0])}</h1><p class="subheading">Your classes and attendance at a glance.</p></div><span class="tracking-id-chip">Matric no. · ${escapeHtml(account.matricNumber)}</span></div>
+    <div class="stat-grid role-stat-grid" aria-label="Student attendance summary">
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Semester attendance</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${student.rate}<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">Above 75%</span> eligibility threshold</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${student.attended}<span class="value-percent"> / 12</span></div><div class="stat-foot">Sample semester sessions</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Enrolled courses</span><span class="stat-icon icon-lilac">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${courses.length}</div><div class="stat-foot">For 2025/2026 · First Semester</div></article>
+    </div>
+    <div class="section-heading role-section-heading"><div><h2>My course attendance</h2><p>Keep track of your semester progress.</p></div></div>
+    <div class="student-course-grid">${courseCards}</div>
+    <section class="panel my-class-schedule"><div class="panel-heading"><div><h2>My Class Schedule</h2><p>Latest updates for your enrolled courses</p></div></div><div class="schedule-list">${renderStudentSchedules(student)}</div></section>
+    <section class="panel notifications-panel"><div class="panel-heading"><div><h2>Schedule notifications</h2><p>Published class changes</p></div></div>${renderScheduleNotifications(account)}</section>
+    <section class="panel"><div class="panel-heading"><div><h2>Attendance by course</h2><p>Present and absent sessions for every enrolled course</p></div></div><div class="table-scroll"><table class="student-attendance-table"><thead><tr><th>COURSE</th><th>PERCENTAGE</th><th>SESSIONS</th><th>STATUS</th></tr></thead><tbody>${attendanceRows}</tbody></table></div></section>
+    ${renderContactPanel('student')}
+    <div class="dashboard-bottom role-dashboard-bottom">
+      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>Example history for the student demo account</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
+      <section class="panel next-class-panel"><div class="panel-heading"><div><h2>Next class</h2><p>Your upcoming session</p></div><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div>${nextSession ? `<div class="next-class-course">${escapeHtml(courseById(nextSession.courseId).code)} · ${escapeHtml(courseById(nextSession.courseId).name)}</div><p>${escapeHtml(nextSession.location)}</p><p>${escapeHtml(formatDate(nextSession.date))} · ${escapeHtml(formatTime(nextSession.startAt))}</p>` : '<p>No upcoming sample classes are scheduled.</p>'}<p class="field-hint">Scan your lecturer’s session QR code to check in. This preview does not submit attendance.</p></section>
+    </div>`;
+}
+
+function renderStudentSchedules(student) {
+  const schedules = state.schedules.filter(schedule => student.courseIds.includes(schedule.courseId)).sort((a, b) => `${a.date}${a.startTime}`.localeCompare(`${b.date}${b.startTime}`));
+  return schedules.map(schedule => {
+    const course = courseById(schedule.courseId);
+    const venue = venueById(schedule.venueId);
+    return `<article class="schedule-card student-schedule-card"><div class="schedule-details"><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><small>Lecturer: ${escapeHtml(schedule.lecturerName || 'Dr. Amina Yusuf')}</small><p>${escapeHtml(formatDate(schedule.date))} · ${escapeHtml(schedule.startTime)}–${escapeHtml(schedule.endTime)}</p><p><strong>Faculty:</strong> ${escapeHtml(venue?.faculty || 'Faculty not specified')} · <strong>Venue:</strong> ${escapeHtml(venue?.name || schedule.venue)} · <strong>Campus:</strong> ${escapeHtml(venue?.campus || 'Campus not specified')}</p>${schedule.instructions ? `<p><strong>Instructions:</strong> ${escapeHtml(schedule.instructions)}</p>` : ''}</div><span class="table-status schedule-status status-${scheduleStatus(schedule).toLowerCase()}">${scheduleStatus(schedule)}</span></article>`;
+  }).join('') || '<div class="empty-state"><strong>No classes scheduled</strong>Classes for your enrolled courses will appear here.</div>';
+}
+
+function renderScheduleNotifications(account) {
+  const student = STUDENTS.find(item => item.matric === account.matricNumber) || STUDENTS[0];
+  const notifications = state.notifications.filter(item => item.studentId === student.id).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+  return notifications.length ? notifications.slice(0, 8).map(item => `<article class="schedule-notification"><strong>${escapeHtml(item.title)}</strong><p>${escapeHtml(item.body)}</p></article>`).join('') : '<p class="field-hint">Schedule changes will appear here.</p>';
+}
+
+function bindVenueManagement() {
+  document.getElementById('venueForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const venue = {
+      id: editingVenueId || randomId(),
+      name: document.getElementById('venueName').value.trim(),
+      type: document.getElementById('venueType').value,
+      faculty: document.getElementById('venueFaculty').value.trim(),
+      department: document.getElementById('venueDepartment').value.trim(),
+      campus: document.getElementById('venueCampus').value.trim(),
+      building: document.getElementById('venueBuilding').value.trim(),
+      floor: document.getElementById('venueFloor').value.trim(),
+      capacity: Number(document.getElementById('venueCapacity').value),
+      status: document.getElementById('venueStatus').value,
+      bufferMinutes: Number(document.getElementById('venueBuffer').value || 0),
+    };
+    const duplicate = state.venues.some(item => item.id !== venue.id
+      && item.name.toLowerCase() === venue.name.toLowerCase()
+      && (item.building || '').toLowerCase() === venue.building.toLowerCase()
+      && item.campus.toLowerCase() === venue.campus.toLowerCase());
+    if (duplicate) {
+      const error = document.getElementById('venueError');
+      error.textContent = 'A venue with this name already exists in the same building and campus.';
+      error.classList.remove('hidden');
+      return;
+    }
+    const index = state.venues.findIndex(item => item.id === venue.id);
+    if (index >= 0) {
+      state.venueHistory.push({ venueId: venue.id, previous: state.venues[index], changedAt: new Date().toISOString() });
+      state.venues[index] = venue;
+    } else state.venues.push(venue);
+    persist();
+    closeModal('venueModal');
+    renderRoleDashboard(currentDemoAccount);
+    showToast(index >= 0 ? 'Venue details updated.' : 'Venue added.');
+    editingVenueId = null;
+  });
+}
+
+function openVenueForm(venueId = null) {
+  editingVenueId = venueId;
+  const venue = venueId ? venueById(venueId) : null;
+  document.getElementById('venueModalTitle').textContent = venue ? 'Edit venue' : 'Add venue';
+  document.getElementById('venueName').value = venue?.name || '';
+  document.getElementById('venueType').value = venue?.type || 'Lecture Hall';
+  document.getElementById('venueFaculty').value = venue?.faculty || '';
+  document.getElementById('venueDepartment').value = venue?.department || '';
+  document.getElementById('venueCampus').value = venue?.campus || '';
+  document.getElementById('venueBuilding').value = venue?.building || '';
+  document.getElementById('venueFloor').value = venue?.floor || '';
+  document.getElementById('venueCapacity').value = venue?.capacity || '';
+  document.getElementById('venueStatus').value = venue?.status || 'available';
+  document.getElementById('venueBuffer').value = venue?.bufferMinutes || 0;
+  document.getElementById('venueError').classList.add('hidden');
+  openModal('venueModal');
+}
+
+function toggleVenue(venueId) {
+  const venue = venueById(venueId);
+  if (!venue) return;
+  venue.status = venue.status === 'available' ? 'unavailable' : 'available';
+  state.venueHistory.push({ venueId, action: venue.status, changedAt: new Date().toISOString() });
+  persist();
+  renderRoleDashboard(currentDemoAccount);
+  showToast(venue.status === 'available' ? 'Venue is available for booking.' : 'Venue marked unavailable.');
+}
+
+function renderVenueManagement() {
+  const rows = state.venues.map(venue => {
+    const bookings = state.schedules.filter(schedule => schedule.venueId === venue.id && schedule.status !== 'cancelled').length;
+    const status = venue.status === 'available' ? 'Available' : 'Unavailable';
+    return `<article class="venue-card"><div class="venue-card-copy"><strong>${escapeHtml(venueLabel(venue))}</strong><small>${escapeHtml(venue.building || 'Building not specified')} · ${escapeHtml(venue.floor || 'Location not specified')} · ${escapeHtml(venue.type)} · ${venue.capacity} seats</small><small>${escapeHtml(venue.department || 'Department not specified')} · ${bookings} active booking${bookings === 1 ? '' : 's'}</small></div><span class="table-status venue-${venue.status}">${status}</span><div class="venue-actions"><button class="button button-small button-outline" type="button" data-edit-venue="${venue.id}">Edit</button><button class="button button-small button-outline" type="button" data-toggle-venue="${venue.id}">${venue.status === 'available' ? 'Mark unavailable' : 'Make available'}</button></div></article>`;
+  }).join('');
+  return `<section class="panel venue-management"><div class="panel-heading"><div><h2>Venue Management</h2><p>Manage faculties, campuses, capacity, and maintenance availability.</p></div><button class="button button-primary button-small" type="button" data-new-venue>${svgIcon('plus')} Add venue</button></div><div class="venue-list">${rows || '<div class="empty-state"><strong>No venues registered</strong>Add a venue to enable classroom booking.</div>'}</div></section>`;
+}
+
+function renderVenueBookings() {
+  const activeSchedules = state.schedules.filter(schedule => {
+    const venue = venueById(schedule.venueId);
+    return schedule.status !== 'cancelled'
+      && (!adminBookingFilters.date || schedule.date === adminBookingFilters.date)
+      && (!adminBookingFilters.venueId || schedule.venueId === adminBookingFilters.venueId)
+      && (!adminBookingFilters.faculty || venue?.faculty === adminBookingFilters.faculty)
+      && (!adminBookingFilters.lecturer || (schedule.lecturerName || '').toLowerCase().includes(adminBookingFilters.lecturer.toLowerCase()));
+  });
+  const rows = activeSchedules.map(schedule => {
+    const venue = venueById(schedule.venueId);
+    const course = courseById(schedule.courseId);
+    return `<tr><td>${escapeHtml(venueLabel(venue))}</td><td>${escapeHtml(course.code)}</td><td>${escapeHtml(schedule.lecturerName || 'Lecturer')}</td><td>${escapeHtml(formatDate(schedule.date))}</td><td>${escapeHtml(schedule.startTime)}–${escapeHtml(schedule.endTime)}</td></tr>`;
+  }).join('');
+  const faculties = [...new Set(state.venues.map(venue => venue.faculty))].sort();
+  return `<section class="panel venue-bookings"><div class="panel-heading"><div><h2>Venue bookings</h2><p>Filter bookings by date, venue, faculty, or lecturer.</p></div></div><div class="booking-filters"><input id="adminBookingDate" type="date" value="${escapeHtml(adminBookingFilters.date)}" aria-label="Filter bookings by date"><select id="adminBookingVenue" aria-label="Filter bookings by venue"><option value="">All venues</option>${state.venues.map(venue => `<option value="${venue.id}" ${venue.id === adminBookingFilters.venueId ? 'selected' : ''}>${escapeHtml(venueLabel(venue))}</option>`).join('')}</select><select id="adminBookingFaculty" aria-label="Filter bookings by faculty"><option value="">All faculties</option>${faculties.map(faculty => `<option ${faculty === adminBookingFilters.faculty ? 'selected' : ''}>${escapeHtml(faculty)}</option>`).join('')}</select><input id="adminBookingLecturer" type="search" placeholder="Lecturer name" value="${escapeHtml(adminBookingFilters.lecturer)}"></div><div class="table-scroll"><table><thead><tr><th>VENUE / FACULTY</th><th>COURSE</th><th>LECTURER</th><th>DATE</th><th>TIME</th></tr></thead><tbody>${rows || '<tr><td colspan="5">No active venue bookings.</td></tr>'}</tbody></table></div></section>`;
+}
+
+function bindAdminBookingFilters() {
+  [['adminBookingDate', 'date'], ['adminBookingVenue', 'venueId'], ['adminBookingFaculty', 'faculty'], ['adminBookingLecturer', 'lecturer']].forEach(([id, key]) => {
+    const element = document.getElementById(id);
+    if (element) element.addEventListener('input', event => {
+      adminBookingFilters[key] = event.target.value;
+      renderRoleDashboard(currentDemoAccount);
+    });
+  });
+}
+
+function renderAdminDashboard(account) {
+  const sessions = [...state.sessions].sort((a, b) => Date.parse(b.startAt) - Date.parse(a.startAt)).slice(0, 4);
+  const sessionRows = sessions.map(session => {
+    const course = courseById(session.courseId);
+    return `<tr><td>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</td><td>${escapeHtml(formatDate(session.date))}</td><td>${checkinsFor(session.id).length} / ${course.students}</td><td><span class="table-status">${escapeHtml(statusLabel(getSessionStatus(session)))}</span></td></tr>`;
+  }).join('');
+  return `
+    <div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Admin demo dashboard</strong> · All figures are sample data held in this browser.</span></div>
+    <div class="welcome-row page-intro"><div><p class="eyebrow">UNIVERSITY ADMINISTRATION</p><h1 id="roleDashboardTitle">Welcome, ${escapeHtml(account.name)}</h1><p class="subheading">Sample university attendance overview.</p></div></div>
+    <div class="stat-grid role-stat-grid" aria-label="University overview">
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Sample students</span><span class="stat-icon icon-lilac">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${STUDENTS.length}</div><div class="stat-foot">Demo roster records</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Courses</span><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div><div class="stat-value">${COURSES.length}</div><div class="stat-foot">Sample course catalogue</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">Class sessions</span><span class="stat-icon icon-green">◉</span></div><div class="stat-value">${state.sessions.length}</div><div class="stat-foot">Stored in this browser only</div></article>
+      <article class="stat-card"><div class="stat-top"><span class="stat-label">At-risk students</span><span class="stat-icon icon-orange">${svgIcon('users', 'ui-icon')}</span></div><div class="stat-value">${STUDENTS.filter(student => student.rate < THRESHOLD).length}</div><div class="stat-foot">Below the sample 75% threshold</div></article>
+    </div>
+    <section class="panel admin-session-panel"><div class="panel-heading"><div><h2>Recent class sessions</h2><p>Sample sessions across the university workspace</p></div><button class="text-button" type="button" data-admin-view="sessions">Open session list ${svgIcon('arrow-right')}</button></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>CHECK-INS</th><th>STATUS</th></tr></thead><tbody>${sessionRows || '<tr><td colspan="4">No sample sessions are available.</td></tr>'}</tbody></table></div></section>
+    ${renderVenueManagement()}
+    ${renderVenueBookings()}
+    ${renderContactPanel('admin')}
+    <div class="admin-quick-links"><button class="button button-outline" type="button" data-admin-view="students">View student roster</button><button class="button button-outline" type="button" data-admin-view="reports">Open attendance reports</button></div>`;
+}
+
+function initialsFor(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(part => part[0].toUpperCase()).join('');
 }
 
 function setStudentAuthTab(tab) {
@@ -218,6 +1070,16 @@ function setStudentAuthTab(tab) {
   setAuthFeedback('registerFeedback', '', false);
 }
 
+function makePreviewTrackingId() {
+  if (!window.crypto || typeof window.crypto.getRandomValues !== 'function') {
+    throw new Error('Secure browser randomness is not available.');
+  }
+  const bytes = new Uint8Array(4);
+  window.crypto.getRandomValues(bytes);
+  const suffix = [...bytes].map(value => value.toString(16).padStart(2, '0')).join('').toUpperCase();
+  return `OT-${suffix}`;
+}
+
 function setAuthFeedback(id, message, isError) {
   const feedback = document.getElementById(id);
   feedback.textContent = message;
@@ -228,10 +1090,20 @@ function setAuthFeedback(id, message, isError) {
 function navigateTo(page) {
   const title = { dashboard: 'Overview', sessions: 'Class sessions', students: 'My students', reports: 'Attendance reports' }[page];
   if (!title) return;
+  if (currentDemoAccount && currentDemoAccount.role === 'student') return;
+  if (currentDemoAccount && currentDemoAccount.role === 'admin' && page === 'dashboard') {
+    document.querySelectorAll('.page').forEach(section => {
+      section.classList.toggle('active', section.id === 'page-role-dashboard');
+    });
+    document.getElementById('pageCrumb').textContent = 'Overview';
+    document.querySelectorAll('.nav-item').forEach(item => item.classList.toggle('active', item.dataset.page === 'dashboard'));
+    return;
+  }
+  if (currentDemoAccount && currentDemoAccount.role === 'admin' && !['sessions', 'students', 'reports'].includes(page)) return;
   document.querySelectorAll('.nav-item').forEach(button => button.classList.toggle('active', button.dataset.page === page));
   document.querySelectorAll('.page').forEach(section => section.classList.toggle('active', section.id === `page-${page}`));
   document.getElementById('pageCrumb').textContent = title;
-  document.getElementById('sidebar').classList.remove('mobile-open');
+  closeMobileMenu();
 }
 
 function bindSessionForm() {
@@ -314,13 +1186,13 @@ function openSessionForm(sessionId = null) {
     document.getElementById('sessionLng').value = session.longitude;
   } else {
     setSessionDefaults();
-    document.getElementById('sessionLocation').value = 'NAUB Main Campus, Biu';
+    document.getElementById('sessionLocation').value = 'Nigerian Army University Biu Main Campus';
     document.getElementById('sessionLat').value = '10.61';
     document.getElementById('sessionLng').value = '12.19';
     document.getElementById('sessionRadius').value = 50;
   }
   document.getElementById('modalTitle').textContent = session ? 'Edit class session' : 'Set up your class';
-  document.querySelector('#sessionForm button[type="submit"]').innerHTML = session ? 'Save changes <span>→</span>' : 'Create session <span>→</span>';
+  document.querySelector('#sessionForm button[type="submit"]').innerHTML = session ? `Save changes ${svgIcon('arrow-right')}` : `Create session ${svgIcon('arrow-right')}`;
   document.getElementById('sessionError').classList.add('hidden');
   openModal('sessionModal');
 }
@@ -350,6 +1222,7 @@ function bindScanFlow() {
   document.getElementById('checkInBtn').addEventListener('click', () => checkIn(false));
   document.getElementById('demoLocationBtn').addEventListener('click', () => checkIn(true));
   document.getElementById('copySessionUrl').addEventListener('click', copySessionUrl);
+  document.getElementById('printQrBtn').addEventListener('click', () => window.print());
   document.getElementById('closeSessionBtn').addEventListener('click', closeActiveSession);
   document.getElementById('rotateQrBtn').addEventListener('click', rotateSessionQr);
   document.getElementById('testScanBtn').addEventListener('click', () => {
@@ -435,6 +1308,21 @@ function openRouteSession() {
   const match = location.pathname.match(/\/a\/([^/]+)\/?$/);
   const token = match ? match[1] : new URLSearchParams(location.search).get('scan');
   if (!token) return;
+  if (document.body.classList.contains('auth-required')) {
+    sessionStorage.setItem(PENDING_SCAN_KEY, token);
+    openStudentPortal();
+    setStudentAuthTab('register');
+    setAuthFeedback('registerFeedback', 'Create your student account before checking in with this QR code.', false);
+    return;
+  }
+  const session = state.sessions.find(item => item.token === token);
+  openScanModal(session || null, token);
+}
+
+function resumePendingScan() {
+  const token = sessionStorage.getItem(PENDING_SCAN_KEY);
+  if (!token) return;
+  sessionStorage.removeItem(PENDING_SCAN_KEY);
   const session = state.sessions.find(item => item.token === token);
   openScanModal(session || null, token);
 }
@@ -446,7 +1334,7 @@ function openScanModal(session, token) {
   document.getElementById('scanFormWrap').classList.remove('hidden');
   document.getElementById('scanResult').classList.add('hidden');
   document.getElementById('locationStatus').className = 'location-status';
-  document.getElementById('locationStatus').innerHTML = '<span class="location-pin">⌖</span><div><strong>Location permission needed</strong><small>We’ll check your GPS accuracy before submitting.</small></div>';
+  document.getElementById('locationStatus').innerHTML = `${svgIcon('location', 'location-pin')}<div><strong>Location permission needed</strong><small>We’ll check your GPS accuracy before submitting.</small></div>`;
   document.getElementById('demoLocationBtn').dataset.token = sessionToken || '';
   document.getElementById('checkInBtn').dataset.token = sessionToken || '';
   if (!session) {
@@ -499,13 +1387,20 @@ async function checkIn(useDemoLocation) {
 
   const resultMessage = validateCheckIn(session, student, position);
   if (resultMessage) return failScan(resultMessage);
+  const alreadyRecorded = state.attendance.some(record => record.sessionId === session.id && record.studentId === student.id);
+  if (alreadyRecorded) return failScan('You have already recorded attendance for this session. No duplicate record was created.');
+  const recordedAt = new Date().toISOString();
   state.attendance.push({
     id: randomId(),
     sessionId: session.id,
     courseId: session.courseId,
     studentId: student.id,
+    matricNumber: normalizeMatric(student.matric),
+    attendanceDate: localDate(new Date(recordedAt)),
     status: 'PRESENT',
-    checkedAt: new Date().toISOString(),
+    checkedAt: recordedAt,
+    signedInAt: recordedAt,
+    signedOutAt: recordedAt,
     latitude: position.latitude,
     longitude: position.longitude,
     accuracy: position.accuracy,
@@ -515,8 +1410,8 @@ async function checkIn(useDemoLocation) {
   persist();
   renderAll();
   showScanResult(true, useDemoLocation
-    ? 'Attendance marked present. This demo used a simulated classroom location; it is not an official attendance record.'
-    : 'Your attendance has been marked present for this class.', student);
+    ? 'Present — your attendance and both timestamps have been recorded successfully. This demo used a simulated classroom location; it is not an official attendance record.'
+    : 'Present — your attendance and both timestamps have been recorded successfully.', student);
 }
 
 function validateSessionBeforeLocation(session) {
@@ -589,7 +1484,7 @@ function distanceMetres(lat1, lon1, lat2, lon2) {
 function setLocationStatus(title, description, success) {
   const element = document.getElementById('locationStatus');
   element.className = success ? 'location-status success' : 'location-status';
-  element.innerHTML = `<span class="location-pin">⌖</span><div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small></div>`;
+  element.innerHTML = `${svgIcon('location', 'location-pin')}<div><strong>${escapeHtml(title)}</strong><small>${escapeHtml(description)}</small></div>`;
 }
 
 function failScan(message) {
@@ -603,7 +1498,7 @@ function showScanResult(success, message, student) {
   document.getElementById('scanFormWrap').classList.add('hidden');
   const result = document.getElementById('scanResult');
   result.className = success ? 'scan-result' : 'scan-result failure';
-  result.innerHTML = `<div class="result-mark">${success ? '✓' : '!'}</div><span class="result-status">${success ? 'PRESENT' : 'CHECK-IN NOT COMPLETE'}</span><h3>${success ? `You’re checked in, ${escapeHtml(student.name.split(' ')[0])}!` : 'Not checked in'}</h3><p>${escapeHtml(message)}</p><button class="button button-outline" id="scanDoneBtn">Done</button>`;
+  result.innerHTML = `<div class="result-mark">${success ? svgIcon('check', 'ui-icon') : svgIcon('info', 'ui-icon')}</div><span class="result-status">${success ? 'PRESENT' : 'CHECK-IN NOT COMPLETE'}</span><h3>${success ? `You’re checked in, ${escapeHtml(student.name.split(' ')[0])}!` : 'Not checked in'}</h3><p>${escapeHtml(message)}</p><button class="button button-outline" id="scanDoneBtn">Done</button>`;
   document.getElementById('scanDoneBtn').addEventListener('click', () => closeModal('scanModal'));
 }
 
@@ -667,6 +1562,24 @@ function bindUtilityControls() {
   document.getElementById('dismissBanner').addEventListener('click', () => {
     document.querySelector('.demo-banner').classList.add('hidden');
   });
+  document.addEventListener('click', event => {
+    const button = event.target.closest('[data-contact-message]');
+    if (!button) return;
+    openContactModal(button.dataset.contactMessage);
+  });
+  document.getElementById('contactForm').addEventListener('submit', event => {
+    event.preventDefault();
+    const recipient = findContact(document.getElementById('contactRecipientId').value);
+    const message = document.getElementById('contactMessage').value.trim();
+    if (!recipient || !message) {
+      formError(document.getElementById('contactError'), 'Enter a message before sending.');
+      return;
+    }
+    state.messages.push({ id: randomId(), from: currentDemoAccount?.name || 'Demo user', recipientId: recipient.id, message, createdAt: new Date().toISOString() });
+    persist();
+    closeModal('contactModal');
+    showToast(`Message prepared for ${recipient.name}.`);
+  });
 }
 
 function renderAll() {
@@ -676,6 +1589,9 @@ function renderAll() {
   renderReport();
   renderCourseAttendance();
   renderStats();
+  renderLecturerSchedules();
+  const lecturerContacts = document.getElementById('lecturerContacts');
+  if (lecturerContacts) lecturerContacts.innerHTML = `${renderContactPanel('lecturer').replace(/^<section class="panel contact-panel">|<\/section>$/g, '')}`;
 }
 
 function renderStats() {
@@ -705,7 +1621,7 @@ function renderTodayClasses() {
     const course = courseById(session.courseId);
     const status = getSessionStatus(session);
     const count = checkinsFor(session.id).length;
-    return `<article class="class-card"><div class="course-monogram ${course.tint}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</div><div class="class-course"><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><small>${course.students} students enrolled</small></div><div class="class-time"><strong>${formatTime(session.startAt)} – ${formatTime(session.endAt)}</strong><small>${status === 'open' ? 'Today · In progress' : escapeHtml(formatDate(session.date))}</small></div><div class="class-place"><strong>${escapeHtml(session.location)}</strong><small>⌖ ${session.radius} m check-in radius</small></div><div class="attendance-count"><strong>${count}</strong> / ${course.students} checked in</div><div class="class-action">${status === 'open' ? `<button class="button button-small button-soft" data-open-qr="${escapeHtml(session.id)}">View QR code</button>` : `<span class="status-pill ${status}"><i></i>${statusLabel(status)}</span>`}</div></article>`;
+    return `<article class="class-card"><div class="course-monogram ${course.tint}">${escapeHtml(course.code.split(' ').map(part => part[0]).join(''))}</div><div class="class-course"><strong>${escapeHtml(course.code)} · ${escapeHtml(course.name)}</strong><small>${course.students} students enrolled</small></div><div class="class-time"><strong>${formatTime(session.startAt)} – ${formatTime(session.endAt)}</strong><small>${status === 'open' ? 'Today · In progress' : escapeHtml(formatDate(session.date))}</small></div><div class="class-place"><strong>${escapeHtml(session.location)}</strong><small>${svgIcon('location', 'inline-icon')} ${session.radius} m check-in radius</small></div><div class="attendance-count"><strong>${count}</strong> / ${course.students} checked in</div><div class="class-action">${status === 'open' ? `<button class="button button-small button-soft" data-open-qr="${escapeHtml(session.id)}">View QR code</button>` : `<span class="status-pill ${status}"><i></i>${statusLabel(status)}</span>`}</div></article>`;
   }).join('');
   container.querySelectorAll('[data-open-qr]').forEach(button => button.addEventListener('click', () => openQrModal(button.dataset.openQr)));
 }
@@ -800,14 +1716,26 @@ function setTodayLabel() {
 }
 
 function openModal(id) {
-  document.getElementById(id).classList.remove('hidden');
+  const modal = document.getElementById(id);
+  modal.classList.remove('hidden');
+  if (id === 'studentAuthModal') {
+    modal.scrollTop = 0;
+    modal.parentElement.scrollTop = 0;
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }
   document.body.style.overflow = 'hidden';
 }
 
 function closeModal(id) {
   const modal = document.getElementById(id);
   if (!modal) return;
-  if (id === 'studentAuthModal') clearStudentAuthForms();
+  if (id === 'studentAuthModal') {
+    clearStudentAuthForms();
+    if (document.body.classList.contains('auth-required')) {
+      openStudentPortal();
+      return;
+    }
+  }
   modal.classList.add('hidden');
   if (!document.querySelector('.modal-backdrop:not(.hidden)')) document.body.style.overflow = '';
 }
@@ -815,10 +1743,13 @@ function closeModal(id) {
 function clearStudentAuthForms() {
   document.getElementById('studentLoginPanel').reset();
   document.getElementById('studentRegisterPanel').reset();
+  document.getElementById('lecturerLoginPanel').reset();
+  document.getElementById('adminLoginPanel').reset();
   document.getElementById('registerPhone').setCustomValidity('');
-  document.getElementById('registerPasswordConfirm').setCustomValidity('');
   setAuthFeedback('loginFeedback', '', false);
   setAuthFeedback('registerFeedback', '', false);
+  setAuthFeedback('lecturerFeedback', '', false);
+  setAuthFeedback('adminFeedback', '', false);
 }
 
 function formError(element, message) {

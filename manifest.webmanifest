@@ -1,0 +1,19 @@
+{
+  "name": "Nigerian Army University Biu Student Attendance",
+  "short_name": "NAUB Attendance",
+  "description": "Nigerian Army University Biu student attendance dashboard and check-in portal",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#e7e4d7",
+  "theme_color": "#e7e4d7",
+  "icons": [
+    {
+      "src": "IMAGES/app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

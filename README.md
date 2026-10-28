@@ -1,6 +1,6 @@
-# NAUB Student Attendance
+# Nigerian Army University Biu Student Attendance
 
-NAUB Student Attendance is an attendance experience designed for university classes. This repository contains an interactive, browser-local MVP prototype and the first Supabase/Postgres schema for a server-verified MVP.
+Nigerian Army University Biu Student Attendance is an attendance experience designed for university classes. This repository contains an interactive, browser-local MVP prototype and the first Supabase/Postgres schema for a server-verified MVP.
 
 > **Important: prototype, not an official attendance system.** The current screens persist demo data in one browser. They do not authenticate users, share session state across phones, call Supabase, or create tamper-resistant attendance records. Client-side time, GPS, device IDs, and browser storage can all be changed. Do not use this prototype to determine examination eligibility. Connect the authenticated server workflow described below before collecting real student data.
 
@@ -11,12 +11,38 @@ NAUB Student Attendance is an attendance experience designed for university clas
 - Generate a QR link, copy it, close a session, and rotate its token. Rotation replaces the previous token.
 - Student check-in with ordered token/session, time-window, GPS accuracy, radius, enrolment, duplicate, and device checks.
 - Browser geolocation with readable permission/accuracy failures, plus an explicitly labelled simulated-location helper for local demonstrations.
-- Responsive layouts, keyboard-dismissable dialogs, reduced-motion support, high-contrast status labels, and light/dark themes.
-- NAUB seal on the left, Army insignia on the right, and a full-cover NAUB campus-photo background with dashboard photo accents; the palette uses warm ivory and sandstone with muted olive, NAUB red, and gold accents.
-- Student portal login and registration form previews collect the requested student profile fields and validate the form locally. They do not authenticate, send, or save user credentials or registration details.
+- Responsive mobile layouts, app-style bottom navigation, installable PWA support, keyboard-dismissable dialogs, reduced-motion support, high-contrast status labels, and light/dark themes.
+- NAUB seal on the left, Army insignia on the right, and a full-cover NAUB campus-photo background with dashboard photo accents; the palette uses olive, field green, khaki, warm sand, and gold.
+- Separate student, lecturer, and admin demo sign-in flows. The app starts on the sign-in portal, student sign-in uses normalized matriculation number plus password, and accepted sample credentials open the role-specific dashboard. The static preview is browser-only and does not create secure authenticated sessions or enforce production roles; student registration does not save production profiles.
+- Browser support does not expose a device MAC address. The preview does not fingerprint devices or treat an IP address, browser identifier, or Tracking ID as secure device authentication.
+- The demo contact directory provides call links and a local message composer for interface testing; it does not deliver messages between users. Production contact details and messaging must come from the authenticated university directory and a server-side notification service.
 - Sample courses and student roster are included as non-production fixtures in the UI.
+- Lecturer demo users can publish, reschedule, cancel, and start attendance for class schedules. Student demo users see enrolled-course schedules and deduplicated schedule notifications; browser storage and polling keep the preview synchronized across open tabs.
+- Administrators can manage faculty-labelled venues, mark rooms unavailable for maintenance, and review current venue bookings. Lecturer booking forms hide inactive or overlapping venues and include faculty, campus, building, type, and capacity details.
 
-The Supabase SQL in [`supabase/schema.sql`](./supabase/schema.sql) provides tenant tables, RLS policies, server-created sessions and QR tokens, QR rotation/close RPCs, and an atomic `mark_attendance` RPC. The UI does not call these procedures yet; they are the backend integration boundary for the next implementation step.
+### Public demo login accounts
+
+Open **Student portal** in the top bar and select a role. The **Use** button fills that role's sample credentials; submit the form to open its demo dashboard.
+
+| Role | Username / matriculation number | Password |
+|---|---|---|
+| Student · Chiamaka Okafor | `190401001` | `StudentDemo26!` |
+| Lecturer · Dr. Amina Yusuf | `lecturer.demo` | `DemoLecturer26!` |
+| Admin · NAUB Administrator | `admin.demo` | `DemoAdmin26!` |
+
+These credentials are deliberately public, hard-coded UI fixtures. Anyone can inspect them, and they provide no authentication, role protection, account persistence, or access to official records. Never reuse them as real credentials.
+
+Apply [`supabase/attendance_present_migration.sql`](./supabase/attendance_present_migration.sql) after the base schema to add normalized matriculation identities and both server timestamps for immediate Present attendance. The SQL provides the atomic authenticated `mark_present(session_id)` RPC and preserves existing records. The UI does not call these procedures yet; they are the backend integration boundary for the next implementation step.
+
+Apply [`supabase/class_schedule_migration.sql`](./supabase/class_schedule_migration.sql) after that migration to add lecturer-owned schedules, schedule history, notification de-duplication, schedule-linked sessions and attendance, and the authenticated `publish_class_schedule`, `update_class_schedule`, `cancel_class_schedule`, and `start_scheduled_attendance` RPCs. The schedule RPCs enforce course ownership and lecturer approval on the server; the UI's local demo controls are not a substitute for these RPCs. The UI does not call these procedures yet; they are the backend integration boundary for the next implementation step.
+
+Apply [`supabase/venue_booking_migration.sql`](./supabase/venue_booking_migration.sql) after the schedule migration to add venues, venue history, faculty/campus-aware schedule venue links, administrator-only venue management RPCs, and transaction-safe overlap checks. It uses a PostgreSQL advisory lock plus a trigger to prevent simultaneous overlapping reservations; cancelled schedules no longer block a venue, while configured venue buffers are respected. The UI does not call these procedures yet; they are the backend integration boundary for the next implementation step.
+
+Apply [`supabase/lecturer_attendance_migration.sql`](./supabase/lecturer_attendance_migration.sql) after the venue migration to add server-authoritative lecturer check-in records and the `check_in_lecturer(schedule_id)` RPC. It also adds the academic-session profile field used during student registration.
+
+Apply [`supabase/security_hardening_migration.sql`](./supabase/security_hardening_migration.sql) last. It makes tenant membership checks honor active account status, adds an explicit student sign-out RPC, and tightens schedule cancellation authorization. Existing rows are preserved.
+
+The `student-register` Edge Function creates a student Auth account and pending profile without accepting a client-selected role. It requires the same server-only Supabase secrets as `student-login`; pending registrations must be approved by an administrator before login is allowed. Set `APP_ORIGIN` to the deployed app origin so browser function calls receive a matching CORS header.
 
 ## Run locally
 
@@ -29,6 +55,10 @@ python3 -m http.server 8000
 Open [http://localhost:8000](http://localhost:8000). If Python is unavailable, use any static-file server. Opening `index.html` directly from `file://` does not provide normal GPS permissions and QR links use the reserved example domain.
 
 The QR renderer and web fonts are loaded from public CDNs. The rest of the demo works without a build step; without the QR library, the check-in URL is still available through “Copy link”.
+
+### Install on a phone
+
+Serve the app over HTTPS (localhost works for testing). On Android, use the browser menu and choose **Install app** or **Add to Home screen**; iPhone users can choose **Share → Add to Home Screen**. A compatible browser may also show the app's **Install mobile app** button. Once installed, the app opens in standalone mode and the shell is cached for offline reopening; live demo data, location services, and server-backed features still require network access.
 
 ## Supabase setup (backend foundation)
 
@@ -64,6 +94,10 @@ NEXT_PUBLIC_APP_URL=https://your-domain.example
 ```
 
 Keep the service-role key in Vercel's encrypted server-side environment only. Use separate development, preview, and production Supabase projects. Add email/SMS provider keys only on the server when those optional channels are enabled.
+
+### Production authentication foundation
+
+The static shell now has an optional Supabase Auth boundary. Copy the public values from [`js/supabase-config.example.js`](./js/supabase-config.example.js) into [`js/supabase-config.js`](./js/supabase-config.js). Only the project URL and publishable/anon key belong in that browser file; never put `SUPABASE_SECRET_KEY` or a service-role key there. Apply [`supabase/auth_foundation_migration.sql`](./supabase/auth_foundation_migration.sql), deploy [`supabase/functions/student-login/index.ts`](./supabase/functions/student-login/index.ts), and set the Edge Function's `APP_ORIGIN`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` secrets. Student matriculation login resolves the matriculation number server-side and then authenticates with Supabase Auth; lecturer/admin accounts use their Supabase email and password. New accounts remain pending until an authorized administrator activates them.
 
 ## Vercel preview deployment
 
