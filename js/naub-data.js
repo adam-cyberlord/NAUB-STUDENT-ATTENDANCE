@@ -21,6 +21,12 @@
     sessionStorage.setItem(TOKEN_CACHE_KEY, JSON.stringify(tokens));
   }
 
+  function clearTokens() {
+    sessionStorage.removeItem(TOKEN_CACHE_KEY);
+  }
+
+  const isHeld = session => ['closed', 'finalized'].includes(session.status) || Date.parse(session.ends_at) <= Date.now();
+
   async function rows(query) {
     const { data, error } = await query;
     if (error) throw error;
@@ -44,14 +50,14 @@
       rows(supabase.from('attendance').select('id, session_id, course_id, student_id, status, checked_at, matric_number').limit(5000)),
       rows(supabase.from('class_schedules').select('id, course_id, lecturer_id, class_date, starts_at, ends_at, venue, venue_id, instructions, status, attendance_session_id, updated_at').order('starts_at')).catch(() => []),
       rows(supabase.from('venues').select('*').order('name')).catch(() => []),
-      rows(supabase.from('notifications').select('id, user_id, title, body, created_at').order('created_at', { ascending: false }).limit(50)),
+      rows(supabase.from('notifications').select('id, user_id, title, body, created_at').order('created_at', { ascending: false }).limit(50)).catch(() => []),
       rows(supabase.from('lecturer_attendance').select('id, lecturer_id, schedule_id, status, checked_in_at')).catch(() => []),
     ]);
 
     const userById = new Map(users.map(user => [user.id, user]));
     const sessionsByCourse = new Map();
     sessions.forEach(session => {
-      if (session.course_id && Date.parse(session.starts_at) <= Date.now()) {
+      if (session.course_id && isHeld(session)) {
         sessionsByCourse.set(session.course_id, (sessionsByCourse.get(session.course_id) || 0) + 1);
       }
     });
@@ -173,6 +179,7 @@
   window.NaubData = {
     load,
     rememberToken,
+    clearTokens,
     async createSession(details) {
       const row = firstRow(await rpc('create_class_session', {
         p_course_id: details.courseId,

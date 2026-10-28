@@ -180,6 +180,7 @@ async function refreshRemoteData() {
     try {
       const data = await window.NaubData.load(currentDemoAccount);
       COURSES.splice(0, COURSES.length, ...data.courses);
+      refreshCourseSelects();
       STUDENTS.splice(0, STUDENTS.length, ...data.students);
       state = {
         sessions: data.sessions, attendance: data.attendance, schedules: data.schedules, scheduleHistory: [],
@@ -919,6 +920,7 @@ async function demoSignOut() {
       return;
     }
   }
+  window.NaubData?.clearTokens();
   currentDemoAccount = null;
   sessionStorage.removeItem(AUTH_SESSION_KEY);
   document.body.classList.add('auth-required');
@@ -979,7 +981,7 @@ function renderStudentDashboard(account) {
   const courses = student.courseIds.map(courseId => courseById(courseId)).filter(Boolean);
   const live = Boolean(account.production);
   if (live) courses.forEach(course => {
-    const held = state.sessions.filter(session => session.courseId === course.id && Date.parse(session.startAt) <= Date.now()).length;
+    const held = state.sessions.filter(session => session.courseId === course.id && (['closed', 'finalized'].includes(session.status) || Date.parse(session.endAt) <= Date.now())).length;
     const present = state.attendance.filter(record => record.courseId === course.id && record.studentId === student.id && record.status !== 'ABSENT').length;
     course.held = held;
     course.present = present;
@@ -1117,6 +1119,12 @@ function openVenueForm(venueId = null) {
 function toggleVenue(venueId) {
   const venue = venueById(venueId);
   if (!venue) return;
+  if (isProduction()) {
+    const nextStatus = venue.status === 'available' ? 'unavailable' : 'available';
+    runRemote(() => window.NaubData.saveVenue(venue.id, { ...venue, status: nextStatus }),
+      nextStatus === 'available' ? 'Venue is available for booking.' : 'Venue marked unavailable.');
+    return;
+  }
   venue.status = venue.status === 'available' ? 'unavailable' : 'available';
   state.venueHistory.push({ venueId, action: venue.status, changedAt: new Date().toISOString() });
   persist();
@@ -1419,8 +1427,27 @@ function setSessionDefaults() {
   document.getElementById('sessionTopic').value = '';
 }
 
+function courseOptionsMarkup() {
+  return COURSES.map(course => `<option value="${escapeHtml(course.id)}">${escapeHtml(course.code)} · ${escapeHtml(course.name)}</option>`).join('');
+}
+
+function refreshCourseSelects() {
+  const markup = courseOptionsMarkup();
+  const sessionSelect = document.getElementById('sessionCourse');
+  const previousSession = sessionSelect.value;
+  sessionSelect.innerHTML = markup || '<option value="">No courses assigned to you</option>';
+  if (COURSES.some(course => course.id === previousSession)) sessionSelect.value = previousSession;
+  ['rosterCourse', 'reportCourse'].forEach(id => {
+    const select = document.getElementById(id);
+    const previous = select.value;
+    [...select.options].slice(1).forEach(option => option.remove());
+    select.insertAdjacentHTML('beforeend', markup);
+    select.value = COURSES.some(course => course.id === previous) ? previous : select.options[0]?.value || '';
+  });
+}
+
 function populateCourseSelects() {
-  const markup = COURSES.map(course => `<option value="${escapeHtml(course.id)}">${escapeHtml(course.code)} · ${escapeHtml(course.name)}</option>`).join('');
+  const markup = courseOptionsMarkup();
   document.getElementById('sessionCourse').innerHTML = markup;
   ['rosterCourse', 'reportCourse'].forEach(id => {
     document.getElementById(id).insertAdjacentHTML('beforeend', markup);
@@ -1593,6 +1620,12 @@ function closeActiveSession() {
 function finalizeActiveSession() {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'finalized') return;
+  if (isProduction()) {
+    if (session.status === 'closed') { showToast('This session is already closed on the server.'); return; }
+    if (!window.confirm('Finalize this session? It will be closed and no further check-ins will be accepted.')) return;
+    runRemote(() => window.NaubData.closeSession(session.id), 'Session closed on the server. No further check-ins are accepted.').then(() => closeModal('qrModal'));
+    return;
+  }
   session.status = 'finalized';
   session.closedAt = new Date().toISOString();
   persist();
