@@ -357,8 +357,8 @@ function bindNavigation() {
     toggleMobileMenu();
   });
   document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileMenu);
-  document.getElementById('createSessionBtn').addEventListener('click', () => openSessionForm());
-  document.getElementById('createSessionBtn2').addEventListener('click', () => openSessionForm());
+  onElement('createSessionBtn', 'click', () => openSessionForm());
+  onElement('createSessionBtn2', 'click', () => openSessionForm());
   document.getElementById('studentPortalBtn').addEventListener('click', () => {
     if (currentDemoAccount) {
       demoSignOut();
