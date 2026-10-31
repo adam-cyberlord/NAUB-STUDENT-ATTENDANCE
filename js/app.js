@@ -65,6 +65,11 @@ const PENDING_SCAN_KEY = 'naub-pending-scan-token';
 const QR_ROTATION_SECONDS = 30;
 let qrCountdownTimer = null;
 
+function onElement(id, eventName, handler) {
+  const element = document.getElementById(id);
+  if (element) element.addEventListener(eventName, handler);
+}
+
 document.addEventListener('DOMContentLoaded', init);
 
 function normalizeMatric(value) {
@@ -1937,8 +1942,8 @@ function showScanResult(success, message, student) {
 }
 
 function bindExports() {
-  document.getElementById('exportStudents').addEventListener('click', () => exportCsv('naub-students.csv', studentRows()));
-  document.getElementById('exportReport').addEventListener('click', () => exportCsv('naub-attendance-report.csv', reportRows()));
+  onElement('exportStudents', 'click', () => exportCsv('naub-students.csv', studentRows()));
+  onElement('exportReport', 'click', () => exportCsv('naub-attendance-report.csv', reportRows()));
 }
 
 function studentRows() {
@@ -1981,7 +1986,7 @@ function bindTheme() {
     console.warn('Could not read the theme preference:', error);
   }
   document.documentElement.dataset.theme = theme;
-  document.getElementById('themeToggle').addEventListener('click', () => {
+  onElement('themeToggle', 'click', () => {
     const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
     document.documentElement.dataset.theme = next;
     try {
