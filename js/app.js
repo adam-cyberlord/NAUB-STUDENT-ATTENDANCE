@@ -707,7 +707,7 @@ function startScheduledAttendance(scheduleId) {
 
 function bindStudentAuth() {
   const authModeNote = document.getElementById('authModeNote');
-  if (window.NaubAuth?.enabled()) {
+  if (window.NaubAuth?.enabled() && authModeNote) {
     authModeNote.textContent = 'Production mode: authentication, session handling, and role access are enforced by Supabase.';
   }
   document.querySelectorAll('[data-reset-password]').forEach(button => {
@@ -1471,11 +1471,14 @@ function courseOptionsMarkup() {
 function refreshCourseSelects() {
   const markup = courseOptionsMarkup();
   const sessionSelect = document.getElementById('sessionCourse');
-  const previousSession = sessionSelect.value;
-  sessionSelect.innerHTML = markup || '<option value="">No courses assigned to you</option>';
-  if (COURSES.some(course => course.id === previousSession)) sessionSelect.value = previousSession;
+  if (sessionSelect) {
+    const previousSession = sessionSelect.value;
+    sessionSelect.innerHTML = markup || '<option value="">No courses assigned to you</option>';
+    if (COURSES.some(course => course.id === previousSession)) sessionSelect.value = previousSession;
+  }
   ['rosterCourse', 'reportCourse'].forEach(id => {
     const select = document.getElementById(id);
+    if (!select) return;
     const previous = select.value;
     [...select.options].slice(1).forEach(option => option.remove());
     select.insertAdjacentHTML('beforeend', markup);
@@ -1485,27 +1488,33 @@ function refreshCourseSelects() {
 
 function populateCourseSelects() {
   const markup = courseOptionsMarkup();
-  document.getElementById('sessionCourse').innerHTML = markup;
+  const sessionSelect = document.getElementById('sessionCourse');
+  if (sessionSelect) sessionSelect.innerHTML = markup;
   ['rosterCourse', 'reportCourse'].forEach(id => {
-    document.getElementById(id).insertAdjacentHTML('beforeend', markup);
+    const select = document.getElementById(id);
+    if (select) select.insertAdjacentHTML('beforeend', markup);
   });
-  document.getElementById('rosterCourse').addEventListener('change', renderStudents);
-  document.getElementById('reportCourse').addEventListener('change', renderReport);
-  document.getElementById('studentSearch').addEventListener('input', renderStudents);
+  const rosterCourse = document.getElementById('rosterCourse');
+  const reportCourse = document.getElementById('reportCourse');
+  const studentSearch = document.getElementById('studentSearch');
+  rosterCourse?.addEventListener('change', renderStudents);
+  reportCourse?.addEventListener('change', renderReport);
+  studentSearch?.addEventListener('input', renderStudents);
 }
 
 function bindScanFlow() {
-  document.getElementById('checkInBtn').addEventListener('click', () => checkIn(false));
-  document.getElementById('demoLocationBtn').addEventListener('click', () => checkIn(true));
-  document.getElementById('copySessionUrl').addEventListener('click', copySessionUrl);
-  document.getElementById('printQrBtn').addEventListener('click', () => window.print());
-  document.getElementById('closeSessionBtn').addEventListener('click', closeActiveSession);
-  document.getElementById('rotateQrBtn').addEventListener('click', rotateSessionQr);
-  document.getElementById('finalizeSessionBtn').addEventListener('click', finalizeActiveSession);
-  document.getElementById('fullscreenQrBtn').addEventListener('click', toggleQrFullscreen);
-  document.getElementById('startCameraBtn').addEventListener('click', startCameraScanner);
-  document.getElementById('stopCameraBtn').addEventListener('click', stopCameraScanner);
-  document.getElementById('testScanBtn').addEventListener('click', () => {
+  const onClick = (id, handler) => document.getElementById(id)?.addEventListener('click', handler);
+  onClick('checkInBtn', () => checkIn(false));
+  onClick('demoLocationBtn', () => checkIn(true));
+  onClick('copySessionUrl', copySessionUrl);
+  onClick('printQrBtn', () => window.print());
+  onClick('closeSessionBtn', closeActiveSession);
+  onClick('rotateQrBtn', rotateSessionQr);
+  onClick('finalizeSessionBtn', finalizeActiveSession);
+  onClick('fullscreenQrBtn', toggleQrFullscreen);
+  onClick('startCameraBtn', startCameraScanner);
+  onClick('stopCameraBtn', stopCameraScanner);
+  onClick('testScanBtn', () => {
     const session = state.sessions.find(item => item.id === activeSessionId);
     if (session) {
       closeModal('qrModal');
