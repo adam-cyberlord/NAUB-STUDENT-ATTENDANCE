@@ -111,23 +111,36 @@ async function enforceAuthenticationGate() {
 async function init() {
   state = loadState();
   seedState();
-  bindNavigation();
-  bindSessionForm();
-  bindScheduleManagement();
-  bindVenueManagement();
-  bindScanFlow();
-  bindExports();
-  bindTheme();
-  bindUtilityControls();
-  bindRoleSwitcher();
-  bindStudentAuth();
-  bindDeviceManagement();
-  populateCourseSelects();
-  renderAll();
-  renderWorkflowPages();
-  setTodayLabel();
-  setSessionDefaults();
-  bindMobileApp();
+
+  // Authentication is the entry point for every role. Keep it independent from
+  // optional dashboard modules so one missing feature target cannot disable the
+  // entire portal before its login handlers are registered.
+  const initialize = (name, callback) => {
+    try {
+      callback();
+    } catch (error) {
+      console.error(`[NAUB] ${name} failed to initialize`, error);
+    }
+  };
+
+  initialize('student authentication', bindStudentAuth);
+  initialize('navigation', bindNavigation);
+  initialize('session forms', bindSessionForm);
+  initialize('schedule management', bindScheduleManagement);
+  initialize('venue management', bindVenueManagement);
+  initialize('scan flow', bindScanFlow);
+  initialize('exports', bindExports);
+  initialize('theme controls', bindTheme);
+  initialize('utility controls', bindUtilityControls);
+  initialize('role switcher', bindRoleSwitcher);
+  initialize('device management', bindDeviceManagement);
+  initialize('course selectors', populateCourseSelects);
+  initialize('dashboard rendering', renderAll);
+  initialize('workflow rendering', renderWorkflowPages);
+  initialize('date labels', setTodayLabel);
+  initialize('session defaults', setSessionDefaults);
+  initialize('mobile app', bindMobileApp);
+
   await enforceAuthenticationGate();
   openRouteSession();
   ensureStudentAuthentication();
