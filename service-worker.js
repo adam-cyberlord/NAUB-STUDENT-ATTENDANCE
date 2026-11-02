@@ -1,11 +1,10 @@
-const CACHE_NAME = 'naub-attendance-v3';
+const CACHE_NAME = 'naub-attendance-v4';
 const APP_SHELL = [
   './',
   './index.html',
   './css/style.css',
   './js/app.js',
   './js/supabase-auth.js',
-  './js/supabase-config.js',
   './manifest.webmanifest',
   './IMAGES/app-icon.svg',
   './IMAGES/logo.png',
