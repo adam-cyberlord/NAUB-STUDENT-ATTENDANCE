@@ -366,10 +366,8 @@ function bindNavigation() {
   document.querySelectorAll('[data-navigate]').forEach(button => {
     button.addEventListener('click', () => navigateTo(button.dataset.navigate));
   });
-  document.getElementById('mobileMenu').addEventListener('click', () => {
-    toggleMobileMenu();
-  });
-  document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileMenu);
+  onElement('mobileMenu', 'click', toggleMobileMenu);
+  onElement('sidebarBackdrop', 'click', closeMobileMenu);
   onElement('createSessionBtn', 'click', () => openSessionForm());
   onElement('createSessionBtn2', 'click', () => openSessionForm());
   document.getElementById('studentPortalBtn').addEventListener('click', () => {
