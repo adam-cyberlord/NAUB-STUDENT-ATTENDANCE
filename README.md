@@ -62,22 +62,21 @@ Serve the app over HTTPS (localhost works for testing). On Android, use the brow
 
 ## Supabase setup (backend foundation)
 
+For a fresh database, [`supabase/complete_setup.sql`](./supabase/complete_setup.sql) contains the base schema, all migrations, security hardening, and sample seed data in dependency order. Back up any database and review the complete file before running it; it is intended as a fresh-setup script, not as an incremental migration.
+
 1. Create a Supabase project in the region appropriate for your users and configure Auth email/phone settings.
-2. Apply [`supabase/schema.sql`](./supabase/schema.sql) using the Supabase SQL editor or Supabase CLI:
+2. Apply the complete setup in the Supabase SQL editor, or install the same SQL through the CLI:
 
    ```sh
    supabase login
    supabase link --project-ref YOUR_PROJECT_REF
-   supabase db push
+   supabase db execute --file supabase/complete_setup.sql
    ```
 
-3. Optionally add the sample NAUB tenant and course catalogue:
-
-   ```sh
-   supabase db execute --file supabase/seed.sql
-   ```
+3. The seed data is included in the complete setup and creates only the NAUB tenant and sample course catalogue:
 
    Seed data does not create user accounts or enrolments. Never seed real student information in a public demo.
+   Existing databases should apply each individual SQL migration in the documented order above instead of rerunning the complete setup.
 4. Bootstrap the first `super_admin` role assignment using a trusted database migration/admin connection. Do not allow a browser client to assign its own roles.
 5. Before real check-ins, add authenticated server/API integration for signup, lecturer approval, device enrollment and approval, class creation, QR rotation, QR check-in, and session close. The scan endpoint must invoke `mark_attendance` with the user's Supabase JWT; never expose a service-role key to a browser.
 6. Configure a private Supabase Storage bucket for excuse documents only when that feature is implemented. Restrict paths to the requesting student and reviewers; set file-size/type limits and retention.

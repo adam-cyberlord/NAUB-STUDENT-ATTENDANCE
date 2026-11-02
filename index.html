@@ -3,10 +3,10 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="theme-color" content="#e7e4d7">
+  <meta name="theme-color" content="#556b2f">
   <meta name="mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="apple-mobile-web-app-title" content="Nigerian Army University Biu Attendance">
   <meta name="description" content="Nigerian Army University Biu attendance helps lecturers and students manage class attendance.">
   <title>Nigerian Army University Biu Attendance</title>
@@ -15,13 +15,15 @@
   <link rel="apple-touch-icon" href="IMAGES/app-icon.svg">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=naub-2026-11-02-refresh">
+
+  <link href="https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400;0,14..32,500;0,14..32,600;0,14..32,700;0,14..32,800;1,14..32,400&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="css/style.css?v=naub-2026-11-02-student-present">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="js/supabase-auth.js"></script>
   <script src="js/naub-data.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js" defer></script>
-  <script src="js/app.js?v=naub-2026-11-02-refresh" defer></script>
+
+  <script src="js/app.js?v=naub-2026-11-02-student-present" defer></script>
 </head>
 <body class="auth-required">
   <svg class="icon-sprite" aria-hidden="true">
@@ -122,6 +124,27 @@
 
         <div class="section-heading"><div><h2>Today’s classes</h2><p id="todayClassesSubline">Your sessions for today</p></div><button class="text-button" data-navigate="sessions">View timetable <svg class="inline-icon"><use href="#icon-arrow-right"/></svg></button></div>
         <div class="class-list" id="todayClasses"></div>
+
+        <section class="dashboard-tools" aria-label="Dashboard shortcuts and insights">
+          <article class="quick-actions-panel panel">
+            <div class="panel-heading"><div><h2>Quick actions</h2><p>Common teaching tasks</p></div></div>
+            <div class="quick-action-grid">
+              <button type="button" class="quick-action" data-dashboard-action="create-session"><span class="quick-action-icon">+</span><span><strong>New session</strong><small>Create an attendance session</small></span></button>
+              <button type="button" class="quick-action" data-dashboard-action="students"><span class="quick-action-icon">♙</span><span><strong>Student roster</strong><small>Review and manage students</small></span></button>
+              <button type="button" class="quick-action" data-dashboard-action="reports"><span class="quick-action-icon">▥</span><span><strong>Generate report</strong><small>Open attendance analytics</small></span></button>
+              <button type="button" class="quick-action" data-dashboard-action="schedule"><span class="quick-action-icon">▦</span><span><strong>Class schedule</strong><small>Manage upcoming classes</small></span></button>
+            </div>
+          </article>
+          <article class="insights-panel panel">
+            <div class="panel-heading"><div><h2>At a glance</h2><p>Updated from your local records</p></div><span class="live-pill"><i></i> LIVE</span></div>
+            <div class="insight-list">
+              <div class="insight-row"><span class="insight-marker red"></span><div><strong id="dashboardOpenSessions">0</strong><small>Sessions available today</small></div></div>
+              <div class="insight-row"><span class="insight-marker yellow"></span><div><strong id="dashboardUpcomingSessions">0</strong><small>Upcoming scheduled classes</small></div></div>
+              <div class="insight-row"><span class="insight-marker black"></span><div><strong id="dashboardAttendanceAlerts">0</strong><small>Students needing attention</small></div></div>
+            </div>
+          </article>
+        </section>
+
         <div id="lecturerScheduleManagement"></div>
         <section class="panel contact-panel" id="lecturerContacts"></section>
 
@@ -143,12 +166,14 @@
         <div class="welcome-row page-intro"><div><p class="eyebrow">ADMINISTRATION OVERVIEW</p><h1 id="adminTitle">Good morning, Ibrahim</h1><p class="subheading">Monitor the attendance programme across NAUB faculties.</p></div><button class="button button-outline" data-demo-action="approval">Review approvals <span>→</span></button></div>
         <div class="role-context"><span class="demo-dot"></span><strong>Admin demonstration view</strong><span>Sample operational data for the 2025/2026 first semester.</span></div>
         <div class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Registered students</span><span class="stat-icon icon-lilac">♧</span></div><div class="stat-value">2,486</div><div class="stat-foot"><span class="trend-up">↑ 12.4%</span> this semester</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Active lecturers</span><span class="stat-icon icon-blue">◉</span></div><div class="stat-value">84</div><div class="stat-foot">Across <strong>12 departments</strong></div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Courses</span><span class="stat-icon icon-green">▦</span></div><div class="stat-value">137</div><div class="stat-foot">Published for this session</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Pending approvals</span><span class="stat-icon icon-orange">!</span></div><div class="stat-value">18</div><div class="stat-foot"><span class="risk-copy">Needs review</span> from departments</div></article></div>
+        <section class="panel manual-attendance-audit"><div class="panel-heading"><div><h2>Manual attendance audit</h2><p>Attendance registered by lecturers after verified device or access complaints.</p></div></div><div id="adminManualAttendanceAudit" class="audit-list"></div></section>
         <div class="dashboard-bottom"><section class="panel"><div class="panel-heading panel-padding"><div><h2>Recent approval requests</h2><p>Items requiring administrative review</p></div><button class="text-button" data-demo-action="approval">View all <span>→</span></button></div><div class="table-scroll"><table><thead><tr><th>REQUEST</th><th>SUBMITTED BY</th><th>DATE</th><th>STATUS</th></tr></thead><tbody><tr><td>CSC 415 · Software Engineering</td><td>Dr. Musa Bello</td><td>27 Oct 2025</td><td><span class="table-status at-risk">Pending</span></td></tr><tr><td>EEE 302 · Digital Systems</td><td>Engr. N. Ibrahim</td><td>26 Oct 2025</td><td><span class="table-status at-risk">Pending</span></td></tr><tr><td>GST 204 · Communication Skills</td><td>Dr. Amina Yusuf</td><td>25 Oct 2025</td><td><span class="table-status">Approved</span></td></tr></tbody></table></div></section><section class="panel admin-health"><div class="panel-heading panel-padding"><div><h2>Programme health</h2><p>Attendance activity this week</p></div></div><div class="health-score"><strong>82%</strong><span>Average attendance</span></div><div class="progress-track"><div class="progress-fill" style="width:82%"></div></div><div class="health-list"><div><span>Sessions recorded</span><strong>342</strong></div><div><span>Students at risk</span><strong>214</strong></div><div><span>Departments active</span><strong>12 / 12</strong></div></div></section></div>
       </section>
 
       <section class="page" id="page-student" aria-labelledby="studentTitle">
         <div class="welcome-row page-intro"><div><p class="eyebrow">STUDENT PORTAL</p><h1 id="studentTitle">Welcome back, Chiamaka</h1><p class="subheading">Keep track of your registration and class attendance.</p></div><button class="button button-primary" data-demo-action="checkin">Check in to class <span>→</span></button></div>
         <div class="role-context"><span class="demo-dot"></span><strong>Student demonstration view</strong><span>Attendance figures shown below are sample records.</span></div>
+        <section class="panel manual-attendance-audit"><div class="panel-heading"><div><h2>My manual attendance updates</h2><p>Changes made by your lecturer for reported device problems.</p></div></div><div id="studentManualAttendanceAudit" class="audit-list"></div></section>
         <div class="stat-grid"><article class="stat-card"><div class="stat-top"><span class="stat-label">Registration status</span><span class="stat-icon icon-green">✓</span></div><div class="stat-value status-value">Approved</div><div class="stat-foot">Verified for first semester</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Approved courses</span><span class="stat-icon icon-blue">▦</span></div><div class="stat-value">6</div><div class="stat-foot">18 credit units registered</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Overall attendance</span><span class="stat-icon icon-lilac">◉</span></div><div class="stat-value">88<span class="value-percent">%</span></div><div class="stat-foot"><span class="trend-up">Good standing</span> above 75% threshold</div></article><article class="stat-card"><div class="stat-top"><span class="stat-label">Classes attended</span><span class="stat-icon icon-orange">↗</span></div><div class="stat-value">42 / 48</div><div class="stat-foot">6 sessions missed</div></article></div>
         <section class="panel"><div class="panel-heading panel-padding"><div><h2>Recent attendance records</h2><p>Your latest class check-ins</p></div><button class="text-button" data-demo-action="records">View attendance history <span>→</span></button></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>TIME</th><th>VENUE</th><th>STATUS</th></tr></thead><tbody><tr><td>CSC 301 · Data Structures</td><td>27 Oct 2025</td><td>10:00 AM</td><td>Main Lecture Theatre</td><td><span class="table-status">Present</span></td></tr><tr><td>CSC 305 · Database Systems</td><td>25 Oct 2025</td><td>1:30 PM</td><td>Computer Science Lab</td><td><span class="table-status">Present</span></td></tr><tr><td>GST 201 · Entrepreneurship</td><td>24 Oct 2025</td><td>9:00 AM</td><td>Main Classroom</td><td><span class="table-status at-risk">Absent</span></td></tr></tbody></table></div></section>
       </section>
@@ -161,7 +186,8 @@
 
       <section class="page" id="page-students" aria-labelledby="studentsTitle">
         <div class="welcome-row page-intro"><div><p class="eyebrow">COURSE ROSTER</p><h1 id="studentsTitle">My students</h1><p class="subheading">Students enrolled in your courses this semester.</p></div><button class="button button-outline" id="exportStudents"><svg class="inline-icon"><use href="#icon-download"/></svg> Export CSV</button></div>
-        <div class="panel roster-panel"><div class="roster-toolbar"><label class="search-input"><span>⌕</span><input id="studentSearch" type="search" placeholder="Search by name or matric number"></label><select id="rosterCourse" aria-label="Filter by course"><option value="">All courses</option></select><span id="rosterCount" class="muted-count"></span></div><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>ATTENDANCE</th><th>STATUS</th></tr></thead><tbody id="studentTableBody"></tbody></table></div></div>
+        <div class="panel roster-panel"><div class="roster-toolbar"><label class="search-input"><span>⌕</span><input id="studentSearch" type="search" placeholder="Search by name or matric number"></label><select id="rosterCourse" aria-label="Filter by course"><option value="">All courses</option></select><span id="rosterCount" class="muted-count"></span></div><p class="field-hint network-address-note">Network values shown are registered demo device identifiers. Real public IP and approved MAC data should come from authenticated university attendance services.</p><div class="table-scroll"><table><thead><tr><th>STUDENT</th><th>MATRIC NUMBER</th><th>COURSE</th><th>IP ADDRESS</th><th>MAC ADDRESS</th><th>ATTENDANCE</th><th>STATUS</th><th>ATTENDANCE ACTION</th></tr></thead><tbody id="studentTableBody"></tbody></table></div></div>
+        <section class="panel manual-attendance-audit"><div class="panel-heading"><div><h2>Manual attendance records</h2><p>Lecturer corrections made for verified device or access problems.</p></div></div><div id="lecturerManualAttendanceAudit" class="audit-list"></div></section>
       </section>
 
       <section class="page" id="page-reports" aria-labelledby="reportsTitle">
@@ -257,8 +283,9 @@
   <div class="modal-backdrop hidden" id="qrModal" role="presentation">
     <section class="modal qr-modal" role="dialog" aria-modal="true" aria-labelledby="qrTitle">
       <div class="modal-header"><div><p class="eyebrow">LIVE CHECK-IN</p><h2 id="qrTitle">Session QR code</h2><p id="qrCourseName">CSC 301 · Data Structures</p></div><button class="close-button" data-close="qrModal" aria-label="Close dialog"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
-      <div class="qr-content"><div class="qr-holder" id="qrCode"><div class="qr-placeholder">QR</div></div><div class="qr-instructions"><span class="live-pill"><i></i> <span id="qrStatusLabel">CHECK-IN OPEN</span></span><h3 id="qrTopic">Ready when you are</h3><p>Ask students to scan with their phone camera. Their browser will open the check-in page.</p><div class="qr-countdown"><span>QR rotates in</span><strong id="qrCountdown">30s</strong></div><div class="qr-meta"><span>⌖</span><div><strong id="qrLocation">NAUB Main Campus, Biu</strong><small id="qrWindow">10:00 AM – 11:00 AM</small></div></div><div class="token-row"><span>SESSION TOKEN</span><code id="qrToken">••••••••</code><button id="copySessionUrl" class="copy-button">Copy link</button></div></div></div>
-      <div class="qr-connection" id="qrConnectionStatus" role="status"><span class="live-indicator"></span><span>Connected · live register</span></div><div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> / <span id="approvedCount">0</span> present <span class="live-caption" id="qrProgressText">Live register</span></div><div class="session-actions"><button class="button button-small button-outline" id="printQrBtn"><svg class="inline-icon"><use href="#icon-print"/></svg> Print QR</button><button class="button button-small button-outline" id="fullscreenQrBtn">Full screen</button><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Regenerate QR</button><button class="button button-small button-outline" id="finalizeSessionBtn">Finalize</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div><div class="qr-progress"><div id="qrProgressBar"></div></div>
+
+      <div class="qr-content"><div class="qr-holder" id="qrCode"><div class="qr-placeholder">QR</div></div><div class="qr-instructions"><span class="live-pill"><i></i> <strong id="qrStatusLabel">CHECK-IN OPEN</strong></span><h3 id="qrTopic">Regular lecture</h3><p>Ask students to scan with their phone camera. Their browser will open the check-in page.</p><div class="qr-meta"><span>⌖</span><div><strong id="qrLocation">NAUB Main Campus, Biu</strong><small id="qrWindow">10:00 AM – 11:00 AM</small></div></div><div class="token-row"><span>SESSION TOKEN</span><code id="qrToken">••••••••</code><button id="copySessionUrl" class="copy-button">Copy link</button></div></div></div>
+      <div class="qr-footer"><div><span class="live-indicator"></span><strong id="liveCount">0</strong> students checked in <span class="live-caption">Updates on refresh</span></div><div class="session-actions"><button class="button button-small button-primary" id="startQrBtn">Start QR</button><button class="button button-small button-outline" id="stopQrBtn">Stop QR</button><button class="button button-small button-outline" id="printQrBtn"><svg class="inline-icon"><use href="#icon-print"/></svg> Print QR</button><button class="button button-small button-outline" id="testScanBtn">Test student check-in</button><button class="button button-small button-outline" id="rotateQrBtn">Regenerate QR</button><button class="button button-outline danger-outline" id="closeSessionBtn">Close session</button></div></div>
       <div class="qr-disclaimer">Demo only: local browser data does not provide authoritative identity, GPS, or attendance verification.</div>
     </section>
   </div>
@@ -291,6 +318,32 @@
         <div class="form-error hidden" id="contactError" role="alert"></div>
         <div class="modal-actions"><button class="button button-outline" type="button" data-close="contactModal">Cancel</button><button class="button button-primary" type="submit"><svg class="inline-icon"><use href="#icon-message"/></svg> Send message</button></div>
       </form>
+    </section>
+  </div>
+  <div class="modal-backdrop hidden" id="semesterSettingsModal" role="presentation">
+    <section class="modal semester-settings-modal" role="dialog" aria-modal="true" aria-labelledby="semesterSettingsTitle">
+      <div class="modal-header"><div><p class="eyebrow">MY SEMESTER</p><h2 id="semesterSettingsTitle">Semester dates</h2><p>These dates are saved separately for your account.</p></div><button class="close-button" data-close="semesterSettingsModal" aria-label="Close semester settings"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
+      <form id="semesterSettingsForm">
+        <div class="semester-settings-grid">
+          <div><label class="field-label" for="semesterName">Semester</label><select id="semesterName" required><option value="first">First Semester</option><option value="second">Second Semester</option></select></div>
+          <div><label class="field-label" for="semesterStartDate">Start date</label><input id="semesterStartDate" type="date" required></div>
+          <div><label class="field-label" for="semesterEndDate">End date</label><input id="semesterEndDate" type="date" required></div>
+        </div>
+        <div class="form-error hidden" id="semesterSettingsError" role="alert"></div>
+        <div class="modal-actions"><button class="button button-outline" type="button" data-close="semesterSettingsModal">Cancel</button><button class="button button-primary" type="submit">Save semester dates</button></div>
+      </form>
+    </section>
+  </div>
+  <div class="modal-backdrop hidden" id="profileModal" role="presentation">
+    <section class="modal profile-modal" role="dialog" aria-modal="true" aria-labelledby="profileModalTitle">
+      <div class="modal-header"><div><p class="eyebrow">MY ACCOUNT</p><h2 id="profileModalTitle">Profile</h2><p>Update your profile picture for this account.</p></div><button class="close-button" data-close="profileModal" aria-label="Close profile"><svg class="ui-icon"><use href="#icon-close"/></svg></button></div>
+      <div class="profile-editor">
+        <div class="profile-photo-preview" id="profilePhotoPreview"><span id="profilePhotoInitials">AY</span></div>
+        <div class="profile-editor-copy"><strong id="profileModalName">User</strong><small id="profileModalRole">Account</small><label class="button button-outline profile-upload-button" for="profilePhotoInput">Upload photo</label><input class="hidden" id="profilePhotoInput" type="file" accept="image/jpeg,image/png,image/webp"><button class="button button-small button-outline" id="removeProfilePhoto" type="button">Remove photo</button></div>
+      </div>
+      <p class="field-hint">Choose a JPG, PNG, or WebP image up to 5 MB.</p>
+      <div class="form-error hidden" id="profilePhotoError" role="alert"></div>
+      <div class="modal-actions"><button class="button button-outline" id="openSemesterFromProfile" type="button">Manage semester dates</button><button class="button button-primary" type="button" data-close="profileModal">Done</button></div>
     </section>
   </div>
   <div class="modal-backdrop auth-backdrop" id="studentAuthModal" role="presentation">
@@ -372,6 +425,20 @@
         <button class="demo-account" type="button" data-demo-account="admin"><span class="demo-account-icon">A</span><span class="demo-account-copy"><strong>Admin · NAUB Administrator</strong><small>admin.demo · DemoAdmin26!</small></span><span class="demo-account-action">Use</span></button>
         <p>These fixed demo credentials are visible to everyone and are not real accounts.</p>
       </section>
+    </section>
+  </div>
+  <div class="modal-backdrop hidden" id="manualAttendanceModal" role="presentation">
+    <section class="modal manual-attendance-modal" role="dialog" aria-modal="true" aria-labelledby="manualAttendanceTitle">
+      <div class="modal-header"><div><p class="eyebrow">EXCEPTION RECORD</p><h2 id="manualAttendanceTitle">Register student attendance manually</h2><p>Available only for a documented device or access issue.</p></div><button class="close-button" data-close="manualAttendanceModal" aria-label="Close dialog">×</button></div>
+      <form id="manualAttendanceForm">
+        <input id="manualStudentId" type="hidden">
+        <input id="manualCourseId" type="hidden">
+        <div class="manual-attendance-grid"><div><label class="field-label" for="manualStudentName">Student</label><input id="manualStudentName" type="text" readonly></div><div><label class="field-label" for="manualSessionId">Class session</label><select id="manualSessionId" required></select></div><div><label class="field-label" for="manualAttendanceStatus">Attendance status</label><select id="manualAttendanceStatus" required><option value="present">Present</option><option value="absent">Absent</option></select></div><div><label class="field-label" for="manualIssueType">Device problem</label><select id="manualIssueType" required><option value="no-device">Student has no device</option><option value="damaged-device">Damaged device</option><option value="lost-device">Lost device</option><option value="changed-device">Changed device / new device</option><option value="device-error">Device or app error</option></select></div></div>
+        <label class="field-label" for="manualIssueComplaint">Student complaint / supporting note</label><textarea id="manualIssueComplaint" rows="4" maxlength="500" placeholder="Record the student's complaint or the reason manual registration is needed." required></textarea>
+        <div class="manual-attendance-warning">This correction creates a visible audit record for the lecturer, admin and student.</div>
+        <div class="form-error hidden" id="manualAttendanceError" role="alert"></div>
+        <div class="modal-actions"><button type="button" class="button button-outline" data-close="manualAttendanceModal">Cancel</button><button type="submit" class="button button-primary">Record attendance</button></div>
+      </form>
     </section>
   </div>
   <div class="modal-backdrop hidden" id="deviceChangeModal" role="presentation">

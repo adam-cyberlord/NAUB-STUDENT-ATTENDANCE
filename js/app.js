@@ -2,6 +2,7 @@
 
 const STORAGE_KEY = 'naub-attendance-demo-v1';
 const THRESHOLD = 75;
+const QR_ROTATION_SECONDS = 30;
 const MAX_GPS_ACCURACY_METRES = 100;
 const svgIcon = (name, className = 'inline-icon') => `<svg class="${className}" aria-hidden="true"><use href="#icon-${name}"></use></svg>`;
 const DEMO_ACCOUNTS = {
@@ -13,6 +14,12 @@ const CONTACTS = {
   lecturer: { id: 'lecturer-amina', role: 'Lecturer', name: 'Dr. Amina Yusuf', phone: '+2348012345601', email: 'amina.yusuf@naub.edu.ng', detail: 'Computer Science · CSC 301' },
   admin: { id: 'admin-support', role: 'Admin', name: 'NAUB Attendance Admin', phone: '+2348012345602', email: 'attendance.admin@naub.edu.ng', detail: 'Attendance support desk' },
 };
+const LECTURERS = [
+  { id: 'lecturer-amina', name: 'Dr. Amina Yusuf', staffId: 'NAUB/LEC/001', email: 'amina.yusuf@naub.edu.ng', department: 'Computer Science', courseIds: ['csc301', 'csc305'], status: 'active', approval: 'approved' },
+];
+const ENROLMENT_REQUESTS = [
+  { id: 'enrol-001', studentId: 'u1', courseId: 'csc301', status: 'pending' },
+];
 const COURSES = [
   { id: 'csc301', code: 'CSC 301', name: 'Data Structures & Algorithms', students: 48, rate: 87, tint: 'purple', room: 'Main Lecture Theatre' },
   { id: 'csc305', code: 'CSC 305', name: 'Database Management Systems', students: 36, rate: 76, tint: 'blue', room: 'Computer Science Lab' },
@@ -25,30 +32,20 @@ const DEFAULT_VENUES = [
   { id: 'venue-cs-lab', name: 'Computer Science Lab', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Main Campus', building: 'Computing Building', floor: 'First floor', type: 'Laboratory', capacity: 60, status: 'available', bufferMinutes: 0 },
   { id: 'venue-hall-b', name: 'Lecture Hall B', faculty: 'Faculty of Computing', department: 'Computer Science', campus: 'Biu Campus', building: 'Main Lecture Block', floor: 'First floor', type: 'Lecture Hall', capacity: 100, status: 'available', bufferMinutes: 0 },
 ];
-const LECTURERS = [
-  { id: 'l1', name: 'Dr. Amina Yusuf', staffId: 'NAUB-CS-014', email: 'amina.yusuf@naub.edu.ng', department: 'Computer Science', courseIds: ['csc301', 'csc305'], status: 'active', approval: 'approved' },
-  { id: 'l2', name: 'Dr. Musa Bello', staffId: 'NAUB-CS-027', email: 'musa.bello@naub.edu.ng', department: 'Computer Science', courseIds: ['csc311'], status: 'pending', approval: 'pending' },
-  { id: 'l3', name: 'Engr. N. Ibrahim', staffId: 'NAUB-EEE-008', email: 'n.ibrahim@naub.edu.ng', department: 'Electrical Engineering', courseIds: [], status: 'suspended', approval: 'approved' },
-];
-const ENROLMENT_REQUESTS = [
-  { id: 'en1', studentId: 'u3', courseId: 'csc301', status: 'pending', reason: '' },
-  { id: 'en2', studentId: 'u5', courseId: 'csc305', status: 'pending', reason: '' },
-  { id: 'en3', studentId: 'u7', courseId: 'gst201', status: 'rejected', reason: 'Please confirm your department details.' },
-];
 
 const STUDENTS = [
-  { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11 },
-  { id: 'u2', name: 'Ibrahim Musa', matric: '190401018', courseIds: ['csc301', 'csc311'], rate: 84, attended: 10 },
-  { id: 'u3', name: 'Temitope Adebayo', matric: '190401023', courseIds: ['csc301', 'csc305'], rate: 72, attended: 8 },
-  { id: 'u4', name: 'Adaeze Nwosu', matric: '190401037', courseIds: ['csc301', 'gst201'], rate: 96, attended: 12 },
-  { id: 'u5', name: 'Yusuf Bello', matric: '190401052', courseIds: ['csc305', 'csc311'], rate: 67, attended: 8 },
-  { id: 'u6', name: 'Fatima Suleiman', matric: '190401064', courseIds: ['csc301', 'csc311'], rate: 88, attended: 11 },
-  { id: 'u7', name: 'Emeka Eze', matric: '190401079', courseIds: ['csc305', 'gst201'], rate: 73, attended: 9 },
-  { id: 'u8', name: 'Kemi Balogun', matric: '190401086', courseIds: ['csc301', 'csc305'], rate: 81, attended: 10 },
-  { id: 'u9', name: 'Sani Abubakar', matric: '190401091', courseIds: ['csc301', 'csc311'], rate: 58, attended: 7 },
-  { id: 'u10', name: 'Nneka Okoye', matric: '190401104', courseIds: ['csc301', 'gst201'], rate: 94, attended: 12 },
-  { id: 'u11', name: 'Tunde Oladipo', matric: '190401117', courseIds: ['csc305', 'csc311'], rate: 69, attended: 8 },
-  { id: 'u12', name: 'Zainab Garba', matric: '190401126', courseIds: ['csc301', 'csc305'], rate: 79, attended: 9 },
+  { id: 'u1', name: 'Chiamaka Okafor', matric: '190401001', courseIds: ['csc301', 'csc305'], rate: 92, attended: 11, ipAddress: '192.168.10.101', macAddress: '70:8B:CD:21:4A:01' },
+  { id: 'u2', name: 'Ibrahim Musa', matric: '190401018', courseIds: ['csc301', 'csc311'], rate: 84, attended: 10, ipAddress: '192.168.10.102', macAddress: '70:8B:CD:21:4A:02' },
+  { id: 'u3', name: 'Temitope Adebayo', matric: '190401023', courseIds: ['csc301', 'csc305'], rate: 72, attended: 8, ipAddress: '192.168.10.103', macAddress: '70:8B:CD:21:4A:03' },
+  { id: 'u4', name: 'Adaeze Nwosu', matric: '190401037', courseIds: ['csc301', 'gst201'], rate: 96, attended: 12, ipAddress: '192.168.10.104', macAddress: '70:8B:CD:21:4A:04' },
+  { id: 'u5', name: 'Yusuf Bello', matric: '190401052', courseIds: ['csc305', 'csc311'], rate: 67, attended: 8, ipAddress: '192.168.10.105', macAddress: '70:8B:CD:21:4A:05' },
+  { id: 'u6', name: 'Fatima Suleiman', matric: '190401064', courseIds: ['csc301', 'csc311'], rate: 88, attended: 11, ipAddress: '192.168.10.106', macAddress: '70:8B:CD:21:4A:06' },
+  { id: 'u7', name: 'Emeka Eze', matric: '190401079', courseIds: ['csc305', 'gst201'], rate: 73, attended: 9, ipAddress: '192.168.10.107', macAddress: '70:8B:CD:21:4A:07' },
+  { id: 'u8', name: 'Kemi Balogun', matric: '190401086', courseIds: ['csc301', 'csc305'], rate: 81, attended: 10, ipAddress: '192.168.10.108', macAddress: '70:8B:CD:21:4A:08' },
+  { id: 'u9', name: 'Sani Abubakar', matric: '190401091', courseIds: ['csc301', 'csc311'], rate: 58, attended: 7, ipAddress: '192.168.10.109', macAddress: '70:8B:CD:21:4A:09' },
+  { id: 'u10', name: 'Nneka Okoye', matric: '190401104', courseIds: ['csc301', 'gst201'], rate: 94, attended: 12, ipAddress: '192.168.10.110', macAddress: '70:8B:CD:21:4A:0A' },
+  { id: 'u11', name: 'Tunde Oladipo', matric: '190401117', courseIds: ['csc305', 'csc311'], rate: 69, attended: 8, ipAddress: '192.168.10.111', macAddress: '70:8B:CD:21:4A:0B' },
+  { id: 'u12', name: 'Zainab Garba', matric: '190401126', courseIds: ['csc301', 'csc305'], rate: 79, attended: 9, ipAddress: '192.168.10.112', macAddress: '70:8B:CD:21:4A:0C' },
 ];
 
 let state;
@@ -59,11 +56,12 @@ let editingSessionId = null;
 let sessionFilter = 'all';
 let currentDemoAccount = null;
 let toastTimer;
+let qrCountdownTimer = null;
 const adminBookingFilters = { date: '', venueId: '', faculty: '', lecturer: '' };
 const AUTH_SESSION_KEY = 'naub-attendance-auth-v1';
 const PENDING_SCAN_KEY = 'naub-pending-scan-token';
-const QR_ROTATION_SECONDS = 30;
-let qrCountdownTimer = null;
+
+
 
 function onElement(id, eventName, handler) {
   const element = document.getElementById(id);
@@ -112,35 +110,26 @@ async function init() {
   state = loadState();
   seedState();
 
-  // Authentication is the entry point for every role. Keep it independent from
-  // optional dashboard modules so one missing feature target cannot disable the
-  // entire portal before its login handlers are registered.
-  const initialize = (name, callback) => {
-    try {
-      callback();
-    } catch (error) {
-      console.error(`[NAUB] ${name} failed to initialize`, error);
-    }
-  };
-
-  initialize('student authentication', bindStudentAuth);
-  initialize('navigation', bindNavigation);
-  initialize('session forms', bindSessionForm);
-  initialize('schedule management', bindScheduleManagement);
-  initialize('venue management', bindVenueManagement);
-  initialize('scan flow', bindScanFlow);
-  initialize('exports', bindExports);
-  initialize('theme controls', bindTheme);
-  initialize('utility controls', bindUtilityControls);
-  initialize('role switcher', bindRoleSwitcher);
-  initialize('device management', bindDeviceManagement);
-  initialize('course selectors', populateCourseSelects);
-  initialize('dashboard rendering', renderAll);
-  initialize('workflow rendering', renderWorkflowPages);
-  initialize('date labels', setTodayLabel);
-  initialize('session defaults', setSessionDefaults);
-  initialize('mobile app', bindMobileApp);
-
+  bindNavigation();
+  bindSessionForm();
+  bindScheduleManagement();
+  bindVenueManagement();
+  bindScanFlow();
+  bindExports();
+  bindTheme();
+  bindUtilityControls();
+  bindSemesterSettings();
+  bindProfilePhoto();
+  bindManualAttendance();
+  bindRoleSwitcher();
+  bindStudentAuth();
+  bindDeviceManagement();
+  populateCourseSelects();
+  renderAll();
+  renderWorkflowPages();
+  setTodayLabel();
+  setSessionDefaults();
+  bindMobileApp();
   await enforceAuthenticationGate();
   openRouteSession();
   ensureStudentAuthentication();
@@ -162,7 +151,8 @@ async function getSupabase() {
 }
 
 async function ensureStudentAuthentication() {
-  if (!window.NaubAuth?.enabled()) return;
+
+  if (window.NaubAuth && !window.NaubAuth.enabled()) return;
   try {
     const supabase = await getSupabase();
     const { data } = await supabase.auth.getSession();
@@ -180,7 +170,7 @@ function matricEmail(matric) {
 function loadState() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (!saved) return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [] };
+    if (!saved) return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [], semesterSettings: {}, profilePhotos: {}, manualAttendance: [], attendanceNotifications: [] };
     const parsed = JSON.parse(saved);
     if (!parsed || !Array.isArray(parsed.sessions) || !Array.isArray(parsed.attendance)) {
       throw new Error('Stored demo data has an unexpected shape.');
@@ -192,10 +182,14 @@ function loadState() {
     parsed.venueHistory = Array.isArray(parsed.venueHistory) ? parsed.venueHistory : [];
     parsed.lecturerAttendance = Array.isArray(parsed.lecturerAttendance) ? parsed.lecturerAttendance : [];
     parsed.messages = Array.isArray(parsed.messages) ? parsed.messages : [];
+    parsed.semesterSettings = parsed.semesterSettings && typeof parsed.semesterSettings === 'object' ? parsed.semesterSettings : {};
+    parsed.profilePhotos = parsed.profilePhotos && typeof parsed.profilePhotos === 'object' ? parsed.profilePhotos : {};
+    parsed.manualAttendance = Array.isArray(parsed.manualAttendance) ? parsed.manualAttendance : [];
+    parsed.attendanceNotifications = Array.isArray(parsed.attendanceNotifications) ? parsed.attendanceNotifications : [];
     return parsed;
   } catch (error) {
     console.error('Unable to load NAUB attendance demo data:', error);
-    return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [] };
+    return { sessions: [], attendance: [], schedules: [], scheduleHistory: [], notifications: [], venues: [], venueHistory: [], lecturerAttendance: [], messages: [], semesterSettings: {}, profilePhotos: {}, manualAttendance: [], attendanceNotifications: [] };
   }
 }
 
@@ -360,16 +354,50 @@ function localDate(date) {
 }
 
 function bindNavigation() {
+  document.addEventListener('submit', event => {
+    const form = event.target;
+    if (form instanceof HTMLFormElement && !form.id) event.preventDefault();
+  });
   document.querySelectorAll('.nav-item').forEach(button => {
     button.addEventListener('click', () => navigateTo(button.dataset.page));
   });
   document.querySelectorAll('[data-navigate]').forEach(button => {
     button.addEventListener('click', () => navigateTo(button.dataset.navigate));
   });
-  onElement('mobileMenu', 'click', toggleMobileMenu);
-  onElement('sidebarBackdrop', 'click', closeMobileMenu);
-  onElement('createSessionBtn', 'click', () => openSessionForm());
-  onElement('createSessionBtn2', 'click', () => openSessionForm());
+
+  document.querySelectorAll('[data-dashboard-action="schedule"]').forEach(button => {
+    button.addEventListener('click', event => {
+      event.stopPropagation();
+      openScheduleForm();
+    });
+  });
+  document.addEventListener('click', event => {
+    const markPresentButton = event.target.closest('[data-student-mark-present]');
+    if (markPresentButton) {
+      markStudentPresent(markPresentButton.dataset.studentMarkPresent);
+      return;
+    }
+    const viewStudent = event.target.closest('[data-view-manual-student]');
+    if (!viewStudent) return;
+    event.preventDefault();
+    const student = STUDENTS.find(item => item.id === viewStudent.dataset.viewManualStudent);
+    if (!student) return;
+    navigateTo('students');
+    requestAnimationFrame(() => {
+      const search = document.getElementById('studentSearch');
+      if (!search) return;
+      search.value = student.name;
+      renderStudents();
+      document.getElementById('studentsTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      showToast(`Showing ${student.name} in the student roster.`);
+    });
+  });
+  document.getElementById('mobileMenu').addEventListener('click', () => {
+    toggleMobileMenu();
+  });
+  document.getElementById('sidebarBackdrop').addEventListener('click', closeMobileMenu);
+  document.getElementById('createSessionBtn').addEventListener('click', () => openSessionForm());
+  document.getElementById('createSessionBtn2').addEventListener('click', () => openSessionForm());
   document.getElementById('studentPortalBtn').addEventListener('click', () => {
     if (currentDemoAccount) {
       demoSignOut();
@@ -378,6 +406,34 @@ function bindNavigation() {
     openStudentPortal();
   });
   document.getElementById('roleDashboardContent').addEventListener('click', event => {
+    const dashboardAction = event.target.closest('[data-dashboard-action]');
+    if (dashboardAction) {
+      const action = dashboardAction.dataset.dashboardAction;
+      if (action === 'create-session') {
+        navigateTo('sessions');
+        requestAnimationFrame(openSessionForm);
+      } else if (action === 'schedule') {
+        openScheduleForm();
+      } else {
+        navigateTo(action);
+      }
+      return;
+    }
+    const manualStudent = event.target.closest('[data-view-manual-student]');
+    if (manualStudent && currentDemoAccount?.role !== 'student') {
+      const pageTarget = currentDemoAccount?.role === 'admin' ? 'students' : 'students';
+      navigateTo(pageTarget);
+      requestAnimationFrame(() => {
+        const search = document.getElementById('studentSearch');
+        const student = STUDENTS.find(item => item.id === manualStudent.dataset.viewManualStudent);
+        if (search && student) {
+          search.value = student.name;
+          renderStudents();
+          search.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+      });
+      return;
+    }
     const action = event.target.closest('[data-admin-view]');
     if (action && currentDemoAccount && currentDemoAccount.role === 'admin') {
       navigateTo(action.dataset.adminView);
@@ -699,8 +755,8 @@ function startScheduledAttendance(scheduleId) {
   }
   const start = new Date(scheduleDateTime(schedule, schedule.startTime));
   const end = new Date(scheduleDateTime(schedule, schedule.endTime));
-  const session = { id: randomId(), scheduleId, courseId: schedule.courseId, date: schedule.date, startAt: start.toISOString(), endAt: end.toISOString(), location: schedule.venue, latitude: 10.61, longitude: 12.19, radius: 50, token: randomId() + randomId(), status: 'open', demo: true };
-  state.sessions.push(session); persist(); renderAll(); renderLecturerSchedules(); navigateTo('sessions'); showToast('Attendance session started for this scheduled class.'); openQrModal(session.id);
+  const session = { id: randomId(), scheduleId, courseId: schedule.courseId, date: schedule.date, startAt: start.toISOString(), endAt: end.toISOString(), location: schedule.venue, latitude: 10.61, longitude: 12.19, radius: 50, token: randomId() + randomId(), status: 'open', qrActive: false, demo: true };
+  state.sessions.push(session); persist(); renderAll(); renderLecturerSchedules(); navigateTo('sessions'); showToast('Attendance class created. Use Start QR when check-in begins.');
 }
 
 function bindStudentAuth() {
@@ -920,7 +976,7 @@ function enterDemoDashboard(account, persistSession = true) {
   document.querySelector('#profileButton .profile-copy strong').textContent = account.name;
   document.querySelector('#profileButton .profile-copy small').textContent = `${account.role[0].toUpperCase()}${account.role.slice(1)} · Nigerian Army University Biu`;
   document.querySelector('#profileButton .avatar').textContent = initialsFor(account.name);
-  document.querySelector('.top-avatar').textContent = initialsFor(account.name);
+  applyProfilePhoto();
   document.getElementById('portalButtonLabel').textContent = 'Sign out';
   document.querySelector('.student-portal-icon').innerHTML = '<use href="#icon-arrow-right"></use>';
 
@@ -930,11 +986,8 @@ function enterDemoDashboard(account, persistSession = true) {
   } else {
     renderRoleDashboard(account);
   }
-  if (account.production) {
-    showToast(`Signed in as ${account.name}.`);
-    refreshRemoteData().then(() => { if (account.role === 'student') resumePendingScan(); });
-    return;
-  }
+
+  applySemesterSettingsToWorkspace();
   showToast(`${account.role[0].toUpperCase()}${account.role.slice(1)} demo dashboard opened.`);
   if (account.role === 'student') resumePendingScan();
 }
@@ -1005,9 +1058,37 @@ function openContactModal(contactId) {
   openModal('contactModal');
 }
 
-function isHeldSession(session) {
-  return Date.parse(session.startAt) <= Date.now()
-    && (['closed', 'finalized'].includes(session.status) || Date.parse(session.endAt) <= Date.now());
+
+function markStudentPresent(sessionId) {
+  const session = state.sessions.find(item => item.id === sessionId);
+  const student = STUDENTS.find(item => item.matric === currentDemoAccount?.matricNumber) || STUDENTS[0];
+  if (!session || !student.courseIds.includes(session.courseId)) {
+    showToast('This session is not available for your account.', 'error');
+    return;
+  }
+  if (session.status === 'closed' || session.status === 'finalized') {
+    showToast('This attendance session has closed.', 'error');
+    return;
+  }
+  if (!session.qrActive) {
+    showToast('The lecturer has not opened QR check-in yet.', 'error');
+    return;
+  }
+  if (state.attendance.some(record => record.sessionId === session.id && record.studentId === student.id)) {
+    showToast('Your presence has already been recorded.', 'error');
+    return;
+  }
+  const recordedAt = new Date().toISOString();
+  state.attendance.push({
+    id: randomId(), sessionId: session.id, courseId: session.courseId,
+    studentId: student.id, matricNumber: normalizeMatric(student.matric),
+    attendanceDate: localDate(new Date(recordedAt)), status: 'PRESENT',
+    checkedAt: recordedAt, signedInAt: recordedAt, signedOutAt: recordedAt,
+    deviceId: deviceIdFor(student.id), demoLocation: true, directStudentCheckIn: true,
+  });
+  persist();
+  renderRoleDashboard();
+  showToast(`Present recorded for ${courseById(session.courseId).code}.`);
 }
 
 function renderStudentDashboard(account) {
@@ -1051,7 +1132,9 @@ function renderStudentDashboard(account) {
     date.setDate(date.getDate() - item.daysAgo);
     return `<tr><td>${escapeHtml(item.course.code)} · ${escapeHtml(item.course.name)}</td><td>${escapeHtml(date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' }))}</td><td><span class="table-status">${item.status}</span></td></tr>`;
   }).join('');
-  const nextSession = [...state.sessions].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)).find(session => Date.parse(session.endAt) > Date.now());
+  const nextSession = [...state.sessions].sort((a, b) => Date.parse(a.startAt) - Date.parse(b.startAt)).find(session => student.courseIds.includes(session.courseId) && Date.parse(session.endAt) > Date.now());
+  const alreadyMarkedPresent = nextSession && state.attendance.some(record => record.sessionId === nextSession.id && record.studentId === student.id);
+  const canMarkPresent = nextSession && nextSession.status === 'open' && nextSession.qrActive && !alreadyMarkedPresent;
 
   return `
     ${live ? '' : '<div class="demo-banner role-demo-banner" role="note"><span class="demo-dot"></span><span><strong>Student demo dashboard</strong> · Attendance figures and history are sample data, not official records.</span></div>'}
@@ -1068,8 +1151,9 @@ function renderStudentDashboard(account) {
     <section class="panel"><div class="panel-heading"><div><h2>Attendance by course</h2><p>Present and absent sessions for every enrolled course</p></div></div><div class="table-scroll"><table class="student-attendance-table"><thead><tr><th>COURSE</th><th>PERCENTAGE</th><th>SESSIONS</th><th>STATUS</th></tr></thead><tbody>${attendanceRows}</tbody></table></div></section>
     ${renderContactPanel('student')}
     <div class="dashboard-bottom role-dashboard-bottom">
-      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>${live ? 'Your latest check-ins' : 'Example history for the student demo account'}</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
-      <section class="panel next-class-panel"><div class="panel-heading"><div><h2>Next class</h2><p>Your upcoming session</p></div><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div>${nextSession ? `<div class="next-class-course">${escapeHtml(courseById(nextSession.courseId).code)} · ${escapeHtml(courseById(nextSession.courseId).name)}</div><p>${escapeHtml(nextSession.location)}</p><p>${escapeHtml(formatDate(nextSession.date))} · ${escapeHtml(formatTime(nextSession.startAt))}</p>` : '<p>No upcoming sample classes are scheduled.</p>'}<p class="field-hint">Scan your lecturer’s session QR code to check in. This preview does not submit attendance.</p></section>
+
+      <section class="panel role-table-panel"><div class="panel-heading"><div><h2>Recent attendance</h2><p>Example history for the student demo account</p></div></div><div class="table-scroll"><table><thead><tr><th>COURSE</th><th>DATE</th><th>STATUS</th></tr></thead><tbody>${historyRows}</tbody></table></div></section>
+      <section class="panel next-class-panel"><div class="panel-heading"><div><h2>Next class</h2><p>Your current or upcoming session</p></div><span class="stat-icon icon-blue">${svgIcon('grid', 'ui-icon')}</span></div>${nextSession ? `<div class="next-class-course">${escapeHtml(courseById(nextSession.courseId).code)} · ${escapeHtml(courseById(nextSession.courseId).name)}</div><p>${escapeHtml(nextSession.location)}</p><p>${escapeHtml(formatDate(nextSession.date))} · ${escapeHtml(formatTime(nextSession.startAt))}</p><div class="student-present-action">${alreadyMarkedPresent ? '<span class="table-status">Present recorded</span>' : canMarkPresent ? `<button type="button" class="button button-primary" data-student-mark-present="${escapeHtml(nextSession.id)}">Mark Present</button>` : `<button type="button" class="button button-outline" disabled>Mark Present</button><small>Available while the lecturer has QR check-in open.</small>`}</div>` : '<p>No upcoming sample classes are scheduled.</p>'}<p class="field-hint">You may mark yourself present only while the lecturer’s QR check-in is active.</p></section>
     </div>`;
 }
 
@@ -1308,7 +1392,9 @@ function updateDeviceRequest(id, status) {
 
 function bindRoleSwitcher() {
   const roleSelect = document.getElementById('roleSelect');
-  roleSelect?.addEventListener('change', () => {
+
+  if (!roleSelect) return;
+  roleSelect.addEventListener('change', () => {
     const role = roleSelect.value;
     document.body.dataset.role = role;
     const labels = { lecturer: 'Lecturer workspace', admin: 'Admin workspace', student: 'Student workspace' };
@@ -1410,6 +1496,7 @@ function bindSessionForm() {
         radius,
         token: randomId() + randomId(),
         status: 'open',
+        qrActive: false,
         demo: false,
       };
       state.sessions.unshift(session);
@@ -1417,8 +1504,7 @@ function bindSessionForm() {
     persist();
     closeModal('sessionModal');
     renderAll();
-    openQrModal(session.id);
-    showToast(editingSessionId ? 'Session updated.' : 'Class session created. Share the QR code with your students.');
+    showToast(editingSessionId ? 'Session updated.' : 'Class session created. Use Start QR when you are ready for check-in.');
     editingSessionId = null;
   });
 }
@@ -1501,18 +1587,24 @@ function populateCourseSelects() {
 }
 
 function bindScanFlow() {
-  const onClick = (id, handler) => document.getElementById(id)?.addEventListener('click', handler);
-  onClick('checkInBtn', () => checkIn(false));
-  onClick('demoLocationBtn', () => checkIn(true));
-  onClick('copySessionUrl', copySessionUrl);
-  onClick('printQrBtn', () => window.print());
-  onClick('closeSessionBtn', closeActiveSession);
-  onClick('rotateQrBtn', rotateSessionQr);
-  onClick('finalizeSessionBtn', finalizeActiveSession);
-  onClick('fullscreenQrBtn', toggleQrFullscreen);
-  onClick('startCameraBtn', startCameraScanner);
-  onClick('stopCameraBtn', stopCameraScanner);
-  onClick('testScanBtn', () => {
+
+  const bindIfPresent = (id, event, handler) => {
+    const element = document.getElementById(id);
+    if (element) element.addEventListener(event, handler);
+  };
+  bindIfPresent('checkInBtn', 'click', () => checkIn(false));
+  bindIfPresent('demoLocationBtn', 'click', () => checkIn(true));
+  bindIfPresent('copySessionUrl', 'click', copySessionUrl);
+  bindIfPresent('printQrBtn', 'click', () => window.print());
+  bindIfPresent('closeSessionBtn', 'click', closeActiveSession);
+  bindIfPresent('rotateQrBtn', 'click', rotateSessionQr);
+  bindIfPresent('startQrBtn', 'click', startActiveSessionQr);
+  bindIfPresent('stopQrBtn', 'click', stopActiveSessionQr);
+  bindIfPresent('finalizeSessionBtn', 'click', finalizeActiveSession);
+  bindIfPresent('fullscreenQrBtn', 'click', toggleQrFullscreen);
+  bindIfPresent('startCameraBtn', 'click', startCameraScanner);
+  bindIfPresent('stopCameraBtn', 'click', stopCameraScanner);
+  bindIfPresent('testScanBtn', 'click', () => {
     const session = state.sessions.find(item => item.id === activeSessionId);
     if (session) {
       closeModal('qrModal');
@@ -1531,39 +1623,71 @@ function openQrModal(sessionId) {
     return;
   }
   const course = courseById(session.courseId);
-  document.getElementById('qrTitle').textContent = `${course.code} session QR`;
-  document.getElementById('qrCourseName').textContent = `${course.code} · ${course.name}`;
-  document.getElementById('qrLocation').textContent = session.location;
-  document.getElementById('qrWindow').textContent = `${formatTime(session.startAt)} – ${formatTime(session.endAt)} · ${session.radius} m radius`;
-  document.getElementById('qrToken').textContent = `${session.token.slice(0, 8)}…${session.token.slice(-6)}`;
-  document.getElementById('qrTopic').textContent = session.topic || 'Regular lecture';
-  document.getElementById('qrStatusLabel').textContent = session.status === 'finalized' ? 'ATTENDANCE FINALIZED' : session.status === 'closed' ? 'SESSION CLOSED' : 'CHECK-IN OPEN';
+  const setText = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.textContent = value;
+  };
+  const setHtml = (id, value) => {
+    const element = document.getElementById(id);
+    if (element) element.innerHTML = value;
+  };
+  setText('qrTitle', `${course.code} session QR`);
+  setText('qrCourseName', `${course.code} · ${course.name}`);
+  setText('qrLocation', session.location);
+  setText('qrWindow', `${formatTime(session.startAt)} – ${formatTime(session.endAt)} · ${session.radius} m radius`);
+  setText('qrToken', `${session.token.slice(0, 8)}…${session.token.slice(-6)}`);
+  setText('qrTopic', session.topic || 'Regular lecture');
+  setText('qrStatusLabel', session.status === 'finalized' ? 'ATTENDANCE FINALIZED' : session.status === 'closed' ? 'SESSION CLOSED' : session.qrActive ? 'CHECK-IN OPEN' : 'QR STOPPED');
   const approved = STUDENTS.filter(student => student.courseIds.includes(session.courseId)).length;
   const present = checkinsFor(session.id).length;
-  document.getElementById('approvedCount').textContent = String(approved);
-  document.getElementById('liveCount').textContent = String(present);
-  document.getElementById('qrProgressText').textContent = `${approved ? Math.round((present / approved) * 100) : 0}% attendance progress`;
-  document.getElementById('qrProgressBar').style.width = `${approved ? Math.min(100, (present / approved) * 100) : 0}%`;
-  document.getElementById('finalizeSessionBtn').disabled = session.status === 'finalized';
-  document.getElementById('finalizeSessionBtn').textContent = session.status === 'finalized' ? 'Finalized' : 'Finalize';
+  setText('approvedCount', String(approved));
+  setText('liveCount', String(present));
+  setText('qrProgressText', `${approved ? Math.round((present / approved) * 100) : 0}% attendance progress`);
+  const progressBar = document.getElementById('qrProgressBar');
+  if (progressBar) progressBar.style.width = `${approved ? Math.min(100, (present / approved) * 100) : 0}%`;
+  const finalizeButton = document.getElementById('finalizeSessionBtn');
+  if (finalizeButton) {
+    finalizeButton.disabled = session.status === 'finalized';
+    finalizeButton.textContent = session.status === 'finalized' ? 'Finalized' : 'Finalize';
+  }
   clearInterval(qrCountdownTimer);
   let secondsLeft = session.qrIssuedAt ? Math.max(0, QR_ROTATION_SECONDS - Math.floor((Date.now() - Date.parse(session.qrIssuedAt)) / 1000)) : QR_ROTATION_SECONDS;
-  document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
-  qrCountdownTimer = setInterval(() => {
-    secondsLeft -= 1;
-    if (secondsLeft <= 0) {
-      document.getElementById('qrStatusLabel').textContent = 'RENEWING QR CODE';
-      document.getElementById('qrConnectionStatus').innerHTML = '<span class="live-indicator"></span><span>Renewing secure token…</span>';
-      rotateSessionQr(true);
-      return;
-    }
-    document.getElementById('qrCountdown').textContent = `${secondsLeft}s`;
-  }, 1000);
-  document.getElementById('closeSessionBtn').disabled = session.status === 'closed';
-  document.getElementById('closeSessionBtn').textContent = session.status === 'closed' ? 'Session closed' : 'Close session';
+  setText('qrCountdown', session.qrActive ? `${secondsLeft}s` : 'Stopped');
+  if (session.qrActive && session.status === 'open') {
+    qrCountdownTimer = setInterval(() => {
+      if (document.getElementById('qrModal')?.classList.contains('hidden')) return;
+      secondsLeft -= 1;
+      if (secondsLeft <= 0) {
+        setText('qrStatusLabel', 'RENEWING QR CODE');
+        setHtml('qrConnectionStatus', '<span class="live-indicator"></span><span>Renewing secure token…</span>');
+        rotateSessionQr(true);
+        return;
+      }
+      setText('qrCountdown', `${secondsLeft}s`);
+    }, 1000);
+  }
+  const closeButton = document.getElementById('closeSessionBtn');
+  if (closeButton) {
+    closeButton.disabled = session.status === 'closed';
+    closeButton.textContent = session.status === 'closed' ? 'Session closed' : 'Close session';
+  }
+  const startButton = document.getElementById('startQrBtn');
+  const stopButton = document.getElementById('stopQrBtn');
+  const lecturerControlsDisabled = session.status === 'closed' || session.status === 'finalized';
+  if (startButton) {
+    startButton.disabled = lecturerControlsDisabled || session.qrActive;
+    startButton.textContent = session.qrActive ? 'QR started' : 'Start QR';
+  }
+  if (stopButton) {
+    stopButton.disabled = lecturerControlsDisabled || !session.qrActive;
+    stopButton.textContent = !session.qrActive ? 'QR stopped' : 'Stop QR';
+  }
+  document.getElementById('rotateQrBtn').disabled = lecturerControlsDisabled || !session.qrActive;
   document.getElementById('qrCode').replaceChildren();
   const url = scanUrl(session.token);
-  if (window.QRCode) {
+  if (!session.qrActive) {
+    document.getElementById('qrCode').innerHTML = '<div class="qr-placeholder">QR STOPPED</div>';
+  } else if (window.QRCode) {
     try {
       new window.QRCode(document.getElementById('qrCode'), { text: url, width: 192, height: 192, colorDark: '#17172b', colorLight: '#ffffff', correctLevel: window.QRCode.CorrectLevel.M });
     } catch (error) {
@@ -1645,6 +1769,32 @@ async function copySessionUrl() {
   }
 }
 
+function startActiveSessionQr() {
+  const session = state.sessions.find(item => item.id === activeSessionId);
+  if (!session || session.status === 'closed' || session.status === 'finalized') return;
+  session.qrActive = true;
+  session.token = randomId() + randomId();
+  session.qrIssuedAt = new Date().toISOString();
+  session.qrStartedAt = session.qrStartedAt || session.qrIssuedAt;
+  persist();
+  openQrModal(session.id);
+  renderAll();
+  showToast('QR check-in started. Students can now scan this class code.');
+}
+
+function stopActiveSessionQr() {
+  const session = state.sessions.find(item => item.id === activeSessionId);
+  if (!session || session.status === 'closed' || session.status === 'finalized') return;
+  session.qrActive = false;
+  session.qrStoppedAt = new Date().toISOString();
+  clearInterval(qrCountdownTimer);
+  qrCountdownTimer = null;
+  persist();
+  openQrModal(session.id);
+  renderAll();
+  showToast('QR check-in stopped. New scans are disabled for this class.', 'success');
+}
+
 function closeActiveSession() {
   const session = state.sessions.find(item => item.id === activeSessionId);
   if (!session || session.status === 'closed') return;
@@ -1684,16 +1834,9 @@ function rotateSessionQr(autoRotate = false) {
     showToast('A closed session cannot receive a new QR code.', 'error');
     return;
   }
-  if (isProduction()) {
-    window.NaubData.rotateQr(session.id).then(token => {
-      session.token = token;
-      session.qrIssuedAt = new Date().toISOString();
-      openQrModal(session.id);
-      if (!autoRotate) showToast('QR code regenerated. The previous link no longer works.');
-    }).catch(error => {
-      console.error('QR rotation failed:', error);
-      showToast(error.message || 'Could not issue a new QR code.', 'error');
-    });
+
+  if (!session.qrActive) {
+    showToast('Start the QR check-in before regenerating the code.', 'error');
     return;
   }
   session.token = randomId() + randomId();
@@ -1875,6 +2018,7 @@ async function checkInRemote(token) {
 function validateSessionBeforeLocation(session) {
   if (!session) return 'This QR code is invalid or does not belong to a session in this browser.';
   if (session.status === 'closed' || session.status === 'finalized') return 'This attendance session is no longer accepting check-ins.';
+  if (!session.qrActive) return 'The lecturer has stopped QR check-in for this class.';
   if (session.qrIssuedAt && Date.now() - Date.parse(session.qrIssuedAt) > QR_ROTATION_SECONDS * 1000) return 'This QR code has expired. Scan the latest code displayed by your lecturer.';
   const now = Date.now();
   if (now < Date.parse(session.startAt) || now > Date.parse(session.endAt)) return 'This check-in is outside the session time window.';
@@ -1958,7 +2102,7 @@ function showScanResult(success, message, student) {
   const result = document.getElementById('scanResult');
   result.className = success ? 'scan-result' : 'scan-result failure';
   result.innerHTML = `<div class="result-mark">${success ? svgIcon('check', 'ui-icon') : svgIcon('info', 'ui-icon')}</div><span class="result-status">${success ? 'PRESENT' : 'CHECK-IN NOT COMPLETE'}</span><h3>${success ? `You’re checked in, ${escapeHtml(student.name.split(' ')[0])}!` : 'Not checked in'}</h3><p>${escapeHtml(message)}</p><button class="button button-outline" id="scanDoneBtn">Done</button>`;
-  document.getElementById('scanDoneBtn').addEventListener('click', () => closeModal('scanModal'));
+  document.getElementById('scanDoneBtn')?.addEventListener('click', () => closeModal('scanModal'));
 }
 
 function bindExports() {
@@ -2017,6 +2161,188 @@ function bindTheme() {
   });
 }
 
+function semesterAccountKey(account = currentDemoAccount) {
+  if (!account) return '';
+  return `${account.role}:${account.username || account.matricNumber || account.name}`;
+}
+
+function defaultSemesterSettings() {
+  return {
+    first: { startDate: '2025-09-15', endDate: '2026-01-31' },
+    second: { startDate: '2026-02-02', endDate: '2026-06-30' },
+  };
+}
+
+function semesterSettingsForCurrentAccount() {
+  if (!currentDemoAccount) return null;
+  const defaults = defaultSemesterSettings();
+  const saved = state.semesterSettings?.[semesterAccountKey()] || {};
+  return {
+    selected: saved.selected === 'second' ? 'second' : 'first',
+    first: { ...defaults.first, ...(saved.first || {}) },
+    second: { ...defaults.second, ...(saved.second || {}) },
+  };
+}
+
+function formatSemesterDate(dateValue) {
+  if (!dateValue) return '';
+  const date = new Date(`${dateValue}T12:00:00`);
+  return Number.isNaN(date.getTime()) ? '' : date.toLocaleDateString('en-NG', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function applySemesterSettingsToWorkspace() {
+  const select = document.getElementById('termSelect');
+  if (!select || !currentDemoAccount) return;
+  if (!['lecturer', 'admin'].includes(currentDemoAccount.role)) {
+    select.disabled = true;
+    return;
+  }
+  select.disabled = false;
+  const settings = semesterSettingsForCurrentAccount();
+  select.innerHTML = ['first', 'second'].map(key => {
+    const dates = settings[key];
+    const label = key === 'first' ? 'First Semester' : 'Second Semester';
+    return `<option value="${key}">${label} · ${formatSemesterDate(dates.startDate)} — ${formatSemesterDate(dates.endDate)}</option>`;
+  }).join('');
+  select.value = settings.selected;
+}
+
+function openSemesterSettings() {
+  if (!currentDemoAccount || !['lecturer', 'admin'].includes(currentDemoAccount.role)) return;
+  const settings = semesterSettingsForCurrentAccount();
+  document.getElementById('semesterName').value = settings.selected;
+  document.getElementById('semesterStartDate').value = settings[settings.selected].startDate;
+  document.getElementById('semesterEndDate').value = settings[settings.selected].endDate;
+  document.getElementById('semesterSettingsError').classList.add('hidden');
+  openModal('semesterSettingsModal');
+}
+
+function profilePhotoKey() { return currentDemoAccount ? semesterAccountKey(currentDemoAccount) : ''; }
+
+function applyProfilePhoto() {
+  if (!currentDemoAccount) return;
+  const photo = state.profilePhotos?.[profilePhotoKey()] || '';
+  ['.avatar', '.top-avatar'].forEach(selector => {
+    const avatar = document.querySelector(selector);
+    if (!avatar) return;
+    avatar.innerHTML = photo ? `<img src="${photo}" alt="Profile picture">` : escapeHtml(initialsFor(currentDemoAccount.name));
+  });
+}
+
+function openProfileModal() {
+  if (!currentDemoAccount) return;
+  document.getElementById('profileModalName').textContent = currentDemoAccount.name;
+  document.getElementById('profileModalRole').textContent = `${currentDemoAccount.role[0].toUpperCase()}${currentDemoAccount.role.slice(1)} account`;
+  const photo = state.profilePhotos?.[profilePhotoKey()] || '';
+  const preview = document.getElementById('profilePhotoPreview');
+  preview.innerHTML = photo ? `<img src="${photo}" alt="Profile picture">` : `<span>${escapeHtml(initialsFor(currentDemoAccount.name))}</span>`;
+  document.getElementById('profilePhotoError').classList.add('hidden');
+  document.getElementById('openSemesterFromProfile').classList.toggle('hidden', !['lecturer', 'admin'].includes(currentDemoAccount.role));
+  openModal('profileModal');
+}
+
+function resizeProfileImage(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error('The selected image could not be read.'));
+    reader.onload = () => {
+      const image = new Image();
+      image.onerror = () => reject(new Error('Choose a valid JPG, PNG, or WebP image.'));
+      image.onload = () => {
+        const size = 320;
+        const canvas = document.createElement('canvas');
+        canvas.width = size;
+        canvas.height = size;
+        const context = canvas.getContext('2d');
+        const scale = Math.max(size / image.width, size / image.height);
+        const width = image.width * scale;
+        const height = image.height * scale;
+        context.drawImage(image, (size - width) / 2, (size - height) / 2, width, height);
+        resolve(canvas.toDataURL('image/jpeg', 0.86));
+      };
+      image.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
+function bindProfilePhoto() {
+  document.getElementById('profilePhotoInput')?.addEventListener('change', async event => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    const error = document.getElementById('profilePhotoError');
+    if (file.size > 5 * 1024 * 1024) {
+      error.textContent = 'The image must be 5 MB or smaller.';
+      error.classList.remove('hidden');
+      return;
+    }
+    try {
+      const photo = await resizeProfileImage(file);
+      state.profilePhotos ||= {};
+      state.profilePhotos[profilePhotoKey()] = photo;
+      persist();
+      applyProfilePhoto();
+      openProfileModal();
+      showToast('Profile picture updated.');
+    } catch (uploadError) {
+      error.textContent = uploadError.message;
+      error.classList.remove('hidden');
+    } finally {
+      event.target.value = '';
+    }
+  });
+  document.getElementById('removeProfilePhoto')?.addEventListener('click', () => {
+    if (!currentDemoAccount) return;
+    delete state.profilePhotos[profilePhotoKey()];
+    persist();
+    applyProfilePhoto();
+    openProfileModal();
+    showToast('Profile picture removed.');
+  });
+}
+
+function bindSemesterSettings() {
+  document.getElementById('profileButton')?.addEventListener('click', openProfileModal);
+  document.querySelector('.top-avatar')?.addEventListener('click', openProfileModal);
+  document.getElementById('openSemesterFromProfile')?.addEventListener('click', () => {
+    closeModal('profileModal');
+    openSemesterSettings();
+  });
+  document.getElementById('semesterName')?.addEventListener('change', event => {
+    const settings = semesterSettingsForCurrentAccount();
+    const dates = settings[event.target.value];
+    document.getElementById('semesterStartDate').value = dates.startDate;
+    document.getElementById('semesterEndDate').value = dates.endDate;
+  });
+  document.getElementById('termSelect')?.addEventListener('change', event => {
+    if (!currentDemoAccount || !['lecturer', 'admin'].includes(currentDemoAccount.role)) return;
+    const settings = semesterSettingsForCurrentAccount();
+    settings.selected = event.target.value;
+    state.semesterSettings[semesterAccountKey()] = settings;
+    persist();
+  });
+  document.getElementById('semesterSettingsForm')?.addEventListener('submit', event => {
+    event.preventDefault();
+    const selected = document.getElementById('semesterName').value;
+    const startDate = document.getElementById('semesterStartDate').value;
+    const endDate = document.getElementById('semesterEndDate').value;
+    const error = document.getElementById('semesterSettingsError');
+    if (!startDate || !endDate || endDate < startDate) {
+      error.textContent = 'End date must be on or after the start date.';
+      error.classList.remove('hidden');
+      return;
+    }
+    const settings = semesterSettingsForCurrentAccount();
+    settings.selected = selected;
+    settings[selected] = { startDate, endDate };
+    state.semesterSettings[semesterAccountKey()] = settings;
+    persist();
+    applySemesterSettingsToWorkspace();
+    closeModal('semesterSettingsModal');
+    showToast('Your semester dates have been saved for this account.');
+  });
+}
+
 function bindUtilityControls() {
   document.getElementById('dismissBanner').addEventListener('click', () => {
     document.querySelector('.demo-banner').classList.add('hidden');
@@ -2068,9 +2394,24 @@ function renderAll() {
   renderReport();
   renderCourseAttendance();
   renderStats();
+  renderDashboardInsights();
   renderLecturerSchedules();
   const lecturerContacts = document.getElementById('lecturerContacts');
   if (lecturerContacts) lecturerContacts.innerHTML = `${renderContactPanel('lecturer').replace(/^<section class="panel contact-panel">|<\/section>$/g, '')}`;
+}
+
+function renderDashboardInsights() {
+  const today = localDate(new Date());
+  const todaySessions = state.sessions.filter(session => session.date === today);
+  const upcomingSessions = state.schedules.filter(schedule => schedule.date >= today).length;
+  const atRiskStudents = STUDENTS.filter(student => student.rate < THRESHOLD).length;
+
+  const openCount = document.getElementById('dashboardOpenSessions');
+  const upcomingCount = document.getElementById('dashboardUpcomingSessions');
+  const alertCount = document.getElementById('dashboardAttendanceAlerts');
+  if (openCount) openCount.textContent = String(todaySessions.length);
+  if (upcomingCount) upcomingCount.textContent = String(upcomingSessions);
+  if (alertCount) alertCount.textContent = String(atRiskStudents);
 }
 
 function renderStats() {
@@ -2130,6 +2471,67 @@ function renderSessions() {
   container.querySelectorAll('[data-edit-session]').forEach(button => button.addEventListener('click', () => openSessionForm(button.dataset.editSession)));
 }
 
+function bindManualAttendance() {
+  document.getElementById('manualAttendanceForm')?.addEventListener('submit', event => {
+    event.preventDefault();
+    const studentId = document.getElementById('manualStudentId').value;
+    const courseId = document.getElementById('manualCourseId').value;
+    const sessionId = document.getElementById('manualSessionId').value;
+    const complaint = document.getElementById('manualIssueComplaint').value.trim();
+    const student = STUDENTS.find(item => item.id === studentId);
+    const session = state.sessions.find(item => item.id === sessionId);
+    if (!student || !courseId || !session || !complaint) {
+      formError(document.getElementById('manualAttendanceError'), 'Select a class and enter the student complaint before saving.');
+      return;
+    }
+    const record = {
+      id: randomId(), studentId, matric: student.matric, studentName: student.name, courseId,
+      sessionId, status: document.getElementById('manualAttendanceStatus').value,
+      issueType: document.getElementById('manualIssueType').value, complaint,
+      lecturer: currentDemoAccount?.name || 'Lecturer', recordedAt: new Date().toISOString(), visibleTo: ['lecturer', 'admin', 'student'],
+    };
+    state.manualAttendance.push(record);
+    state.attendanceNotifications.push({ id: randomId(), audience: 'student', studentId, title: 'Manual attendance update', message: `${record.status === 'present' ? 'Present' : 'Absent'} was recorded for ${courseById(courseId).code} by your lecturer for the reason: ${complaint}`, createdAt: record.recordedAt, recordId: record.id });
+    state.attendanceNotifications.push({ id: randomId(), audience: 'admin', title: 'Manual attendance recorded', message: `${student.name} was marked ${record.status} by ${record.lecturer}.`, createdAt: record.recordedAt, recordId: record.id });
+    persist();
+    closeModal('manualAttendanceModal');
+    renderManualAttendanceAudits();
+    renderStudents();
+    showToast(`Manual attendance recorded as ${record.status}. Lecturer, admin and student can see it.`);
+  });
+}
+
+function openManualAttendance(studentId, courseId) {
+  const student = STUDENTS.find(item => item.id === studentId);
+  if (!student) return;
+  const matchingSessions = state.sessions.filter(item => item.courseId === courseId);
+  if (!matchingSessions.length) {
+    showToast('Create or start a class session before recording manual attendance.', 'error');
+    return;
+  }
+  document.getElementById('manualStudentId').value = studentId;
+  document.getElementById('manualCourseId').value = courseId;
+  document.getElementById('manualStudentName').value = `${student.name} · ${student.matric}`;
+  document.getElementById('manualSessionId').innerHTML = matchingSessions.map(session => `<option value="${escapeHtml(session.id)}">${escapeHtml(formatDate(session.date))} · ${escapeHtml(formatTime(session.startAt))} · ${escapeHtml(session.topic || courseById(session.courseId).code)}</option>`).join('');
+  document.getElementById('manualIssueComplaint').value = '';
+  document.getElementById('manualAttendanceError').classList.add('hidden');
+  openModal('manualAttendanceModal');
+}
+
+function renderManualAttendanceAudits() {
+  const records = [...(state.manualAttendance || [])].sort((a, b) => Date.parse(b.recordedAt) - Date.parse(a.recordedAt));
+  const markup = records.map(record => `<article class="manual-attendance-record"><div><strong>${escapeHtml(record.studentName)} · ${escapeHtml(record.matric)}</strong><small>${escapeHtml(courseById(record.courseId)?.code || record.courseId)} · ${escapeHtml(record.status)} · Recorded by ${escapeHtml(record.lecturer)}</small></div><p>${escapeHtml(record.complaint)}</p><div class="audit-visible"><span>Visible to lecturer</span><span>Visible to admin</span><span>Visible to student</span></div><div class="manual-record-actions"><button type="button" class="button button-small button-outline" data-view-manual-student="${escapeHtml(record.studentId)}">View student</button></div></article>`).join('') || '<div class="empty-state">No manual attendance corrections have been recorded.</div>';
+  const lecturerAudit = document.getElementById('lecturerManualAttendanceAudit');
+  if (lecturerAudit) lecturerAudit.innerHTML = markup;
+  const adminAudit = document.getElementById('adminManualAttendanceAudit');
+  if (adminAudit) adminAudit.innerHTML = markup;
+  const studentAudit = document.getElementById('studentManualAttendanceAudit');
+  if (studentAudit) {
+    const student = STUDENTS.find(item => item.matric === (currentDemoAccount?.matricNumber || '190401001'));
+    studentAudit.innerHTML = records.filter(record => !student || record.studentId === student.id).map(record => `<article class="manual-attendance-record"><div><strong>${escapeHtml(courseById(record.courseId)?.code || record.courseId)} · ${escapeHtml(record.status)}</strong><small>Recorded by ${escapeHtml(record.lecturer)} · ${escapeHtml(formatDate(record.recordedAt.slice(0, 10)))}</small></div><p>${escapeHtml(record.complaint)}</p></article>`).join('') || '<div class="empty-state">No manual attendance changes for your account.</div>';
+  }
+}
+
 function renderStudents() {
   const selectedCourse = document.getElementById('rosterCourse').value;
   const query = document.getElementById('studentSearch').value.trim().toLowerCase();
@@ -2139,8 +2541,10 @@ function renderStudents() {
   document.getElementById('studentTableBody').innerHTML = filtered.map(({ student, course }) => {
     const initials = student.name.split(' ').slice(0, 2).map(part => part[0]).join('');
     const risk = student.rate < THRESHOLD;
-    return `<tr><td><span class="student-cell"><span class="student-avatar">${escapeHtml(initials)}</span>${escapeHtml(student.name)}</span></td><td>${escapeHtml(student.matric)}</td><td>${escapeHtml(course.code)}</td><td><span class="attendance-meter"><i class="${risk ? 'low' : ''}" style="width:${student.rate}%"></i></span>${student.rate}%</td><td><span class="table-status ${risk ? 'at-risk' : ''}">${risk ? 'At risk' : 'On track'}</span></td></tr>`;
+    return `<tr><td><span class="student-cell"><span class="student-avatar">${escapeHtml(initials)}</span>${escapeHtml(student.name)}</span></td><td>${escapeHtml(student.matric)}</td><td>${escapeHtml(course.code)}</td><td><code class="network-address">${escapeHtml(student.ipAddress || 'Not registered')}</code></td><td><code class="network-address">${escapeHtml(student.macAddress || 'Not registered')}</code></td><td><span class="attendance-meter"><i class="${risk ? 'low' : ''}" style="width:${student.rate}%"></i></span>${student.rate}%</td><td><span class="table-status ${risk ? 'at-risk' : ''}">${risk ? 'At risk' : 'On track'}</span></td><td><button class="button button-small button-outline" data-manual-attendance="${escapeHtml(student.id)}" data-manual-course="${escapeHtml(course.id)}">Manual record</button></td></tr>`;
   }).join('');
+  document.querySelectorAll('[data-manual-attendance]').forEach(button => button.addEventListener('click', () => openManualAttendance(button.dataset.manualAttendance, button.dataset.manualCourse)));
+  renderManualAttendanceAudits();
 }
 
 function renderReport() {
@@ -2216,6 +2620,10 @@ function closeModal(id) {
     }
   }
   modal.classList.add('hidden');
+  if (id === 'qrModal' && typeof qrCountdownTimer !== 'undefined' && qrCountdownTimer) {
+    clearInterval(qrCountdownTimer);
+    qrCountdownTimer = null;
+  }
   if (!document.querySelector('.modal-backdrop:not(.hidden)')) document.body.style.overflow = '';
 }
 

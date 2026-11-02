@@ -1,6 +1,31 @@
 -- NAUB Student Attendance MVP database foundation for Supabase Postgres.
 -- Apply with: supabase db push
 -- Authenticated writes to attendance are intentionally limited to RPC functions.
+-- CAUTION: the reset below permanently deletes data from the application's public tables.
+-- Remove the reset block when installing into an existing database with data that must be preserved.
+
+drop table if exists public.course_enrolment_requests cascade;
+drop table if exists public.registration_applications cascade;
+drop table if exists public.invitations cascade;
+drop table if exists public.device_change_requests cascade;
+drop table if exists public.lecturer_attendance cascade;
+drop table if exists public.venue_history cascade;
+drop table if exists public.venues cascade;
+drop table if exists public.class_schedule_history cascade;
+drop table if exists public.class_schedules cascade;
+drop table if exists public.attendance_attempts cascade;
+drop table if exists public.attendance cascade;
+drop table if exists public.sessions cascade;
+drop table if exists public.excuse_requests cascade;
+drop table if exists public.notifications cascade;
+drop table if exists public.audit_logs cascade;
+drop table if exists public.enrollments cascade;
+drop table if exists public.devices cascade;
+drop table if exists public.courses cascade;
+drop table if exists public.user_roles cascade;
+drop table if exists public.users cascade;
+drop table if exists public.roles cascade;
+drop table if exists public.universities cascade;
 
 create extension if not exists pgcrypto with schema extensions;
 
@@ -843,9 +868,13 @@ create table if not exists public.device_change_requests (
 );
 create index if not exists device_change_requests_scope on public.device_change_requests (university_id, status, created_at desc);
 alter table public.device_change_requests enable row level security;
-create policy if not exists "students view own device requests" on public.device_change_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
-create policy if not exists "students create own device requests" on public.device_change_requests for insert to authenticated with check (student_id = auth.uid());
-create policy if not exists "authorized staff review device requests" on public.device_change_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid())) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+drop policy if exists "students view own device requests" on public.device_change_requests;
+drop policy if exists "students create own device requests" on public.device_change_requests;
+drop policy if exists "authorized staff review device requests" on public.device_change_requests;
+
+create policy "students view own device requests" on public.device_change_requests for select to authenticated using (student_id = auth.uid() or public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
+create policy "students create own device requests" on public.device_change_requests for insert to authenticated with check (student_id = auth.uid());
+create policy "authorized staff review device requests" on public.device_change_requests for update to authenticated using (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid())) with check (public.has_role(university_id, 'university_admin') or exists (select 1 from public.courses c join public.enrollments e on e.course_id = c.id where e.student_id = device_change_requests.student_id and c.lecturer_id = auth.uid()));
 grant select, insert, update on public.device_change_requests to authenticated;
 
 -- Stage 2 approval workflow tables. Apply as a versioned migration in Supabase before enabling production writes.

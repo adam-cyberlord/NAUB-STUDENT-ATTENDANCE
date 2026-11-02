@@ -155,8 +155,8 @@ create or replace function public.start_scheduled_attendance(p_schedule_id uuid)
 returns table (session_id uuid, qr_token text) language plpgsql security definer set search_path='' as $$
 declare v_schedule public.class_schedules%rowtype; v_session_id uuid; v_created record; begin
   select * into v_schedule from public.class_schedules where id=p_schedule_id;
-  if not found or v_schedule.lecturer_id<>auth.uid() then raise exception 'not authorized for this schedule'; end;
-  if v_schedule.status='cancelled' then raise exception 'cancelled schedule'; end;
+  if not found or v_schedule.lecturer_id<>auth.uid() then raise exception 'not authorized for this schedule'; end if;
+  if v_schedule.status='cancelled' then raise exception 'cancelled schedule'; end if;
   if v_schedule.attendance_session_id is not null then
     return query select v_schedule.attendance_session_id, null::text;
     return;

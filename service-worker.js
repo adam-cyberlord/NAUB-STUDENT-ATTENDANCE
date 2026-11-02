@@ -1,4 +1,5 @@
-const CACHE_NAME = 'naub-attendance-v5';
+
+const CACHE_NAME = 'naub-attendance-v5-final';
 const APP_SHELL = [
   './',
   './index.html',
