@@ -682,24 +682,24 @@ html[data-theme="dark"] .student-auth-brand { background: #1f251c; }
 
 /* 2026 visual refresh: calm academic navy with warm signal colors. */
 :root {
-  --page: #f4f7fb;
+  --page: #f7f7fc;
   --surface: #ffffff;
-  --surface-soft: #eef3f8;
-  --ink: #102a43;
-  --muted: #62748a;
-  --faint: #8da0b5;
-  --line: #dce5ee;
-  --purple: #1d647a;
-  --purple-dark: #0e3b53;
-  --purple-soft: #e7f3f5;
-  --green: #16835f;
-  --green-soft: #e8f7f0;
-  --orange: #b87516;
-  --orange-soft: #fff4df;
-  --red: #b84747;
-  --red-soft: #fdecec;
-  --gold: #d39a38;
-  --shadow: 0 12px 32px rgba(25, 57, 83, .08);
+  --surface-soft: #f0effa;
+  --ink: #242044;
+  --muted: #686582;
+  --faint: #9895b3;
+  --line: #e3e1f0;
+  --purple: #6157d9;
+  --purple-dark: #322c86;
+  --purple-soft: #ecebff;
+  --green: #159b79;
+  --green-soft: #e7f8f3;
+  --orange: #e87951;
+  --orange-soft: #fff0ea;
+  --red: #d94c67;
+  --red-soft: #ffecef;
+  --gold: #f0b44d;
+  --shadow: 0 12px 32px rgba(53, 45, 110, .10);
   --sidebar: 264px;
 }
 
@@ -708,14 +708,14 @@ html {
   background-image: radial-gradient(circle at 85% 0%, rgba(29, 100, 122, .12), transparent 30%), linear-gradient(135deg, #f7f9fc, #eaf1f6);
 }
 body { color: var(--ink); font-size: 14px; }
-.sidebar { padding: 24px 18px 16px; background: #0e2f43; border-right: 0; box-shadow: 12px 0 34px rgba(14, 47, 67, .13); }
+.sidebar { padding: 24px 18px 16px;   background: #292452; border-right: 0; box-shadow: 12px 0 34px rgba(42, 36, 103, .18); }
 .brand { color: #f8fbfd; }
 .brand-name strong { color: #fff; }
 .brand-name small, .workspace-label { color: #9fc4cf; }
 .workspace-label { margin-top: 46px; }
 .nav-item { color: #aac3cc; border-radius: 10px; }
 .nav-item:hover { color: #fff; background: rgba(255,255,255,.08); }
-.nav-item.active { color: #fff; background: #1b6579; box-shadow: inset 3px 0 #e3b55b, 0 8px 18px rgba(0,0,0,.12); }
+.nav-item.active {   color: #fff; background: #6157d9; box-shadow: inset 3px 0 #f0b44d, 0 8px 18px rgba(0,0,0,.16); }
 .help-card { border-color: rgba(255,255,255,.12); background: rgba(255,255,255,.07); }
 .help-card strong { color: #fff; }
 .help-card p, .profile-copy small { color: #aac3cc; }
@@ -728,7 +728,7 @@ body { color: var(--ink); font-size: 14px; }
 .content { padding-top: 90px; }
 .demo-banner { border-color: #cfe4e7; background: #eff9f8; color: #54717d; }
 .demo-banner strong { color: #135b6c; }
-.welcome-row { min-height: 172px; border: 0; background: linear-gradient(110deg, #0d4058 0%, #1b6a7d 68%, #2a8290 100%); box-shadow: 0 16px 32px rgba(18, 76, 93, .2); }
+.welcome-row { min-height: 172px; border: 0;   background: linear-gradient(110deg, #322c86 0%, #6157d9 68%, #8a7ff0 100%); box-shadow: 0 16px 32px rgba(50, 44, 134, .24); }
 .welcome-row::after { border-color: rgba(255,255,255,.16); }
 .welcome-row .eyebrow, .welcome-row .subheading, .welcome-row h1 { color: #fff; }
 .welcome-row .subheading { color: #c9e3e5; }
@@ -745,7 +745,7 @@ body { color: var(--ink); font-size: 14px; }
 .course-monogram.blue, .icon-blue { color: #2d69a0; background: #e8f1fb; }
 .course-monogram.amber, .icon-orange { color: #a66813; background: #fff3dc; }
 .section-heading { border-bottom-color: var(--line); }
-.button-primary { background: #1d647a; box-shadow: 0 8px 16px rgba(29,100,122,.18); }
+.button-primary {   background: #6157d9; box-shadow: 0 8px 16px rgba(97,87,217,.22); }
 .button-primary:hover { background: #145267; }
 .button-student { color: #0e5368; background: #e7f3f5; border-color: #c7e0e4; box-shadow: none; }
 .role-context { border-color: #d8e6ee; background: #f5f9fc; }
@@ -756,21 +756,21 @@ body { color: var(--ink); font-size: 14px; }
 .toast { border-color: #cfe4e7; box-shadow: 0 12px 28px rgba(16,42,67,.18); }
 
 [data-theme="dark"] {
-  --page: #0e1d29;
-  --surface: #132b3b;
-  --surface-soft: #183646;
-  --ink: #edf6f7;
-  --muted: #a6c0c8;
-  --faint: #7896a2;
-  --line: rgba(171, 213, 220, .18);
-  --purple: #72c0c1;
-  --purple-dark: #b8e4e2;
-  --purple-soft: #1a4656;
-  --green: #75d0a8;
-  --green-soft: #1b493e;
-  --orange: #e5bd70;
-  --orange-soft: #4d3b22;
-  --shadow: 0 14px 34px rgba(0,0,0,.22);
+  --page: #141329;
+  --surface: #211d40;
+  --surface-soft: #2b2750;
+  --ink: #f5f3ff;
+  --muted: #bcb8d8;
+  --faint: #8984aa;
+  --line: rgba(215, 211, 255, .18);
+  --purple: #a59dff;
+  --purple-dark: #d6d2ff;
+  --purple-soft: #342f67;
+  --green: #69d6b3;
+  --green-soft: #214e4b;
+  --orange: #ffb28f;
+  --orange-soft: #58343b;
+  --shadow: 0 14px 34px rgba(0,0,0,.25);
 }
 [data-theme="dark"] html, html[data-theme="dark"] { background-color: #0e1d29; background-image: radial-gradient(circle at 85% 0%, rgba(70,153,160,.18), transparent 35%), linear-gradient(135deg,#102331,#0b1822); }
 [data-theme="dark"] .topbar { background: rgba(14,29,41,.9); }
